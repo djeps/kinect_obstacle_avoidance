@@ -76,11 +76,8 @@ class Kinect:
         # Setting OpenCV window properties
         # --------------------------------
         self.__window_name__ = window_name
-        self.__window_width__ = Kinect.DEFAULT_WINDOW_WIDTH
-        self.__window_height__ = Kinect.DEFAULT_WINDOW_HEIGHT
-
-        if self.__display_mode__ == Kinect.RGB_AND_DEPTH:
-            self.__window_width__ *= 2
+        self.__window_width__ = Kinect.DEFAULT_WINDOW_WIDTH * 2
+        self.__window_height__ = Kinect.DEFAULT_WINDOW_HEIGHT * 2
 
         cv2.namedWindow(self.__window_name__, cv2.WINDOW_NORMAL)
         cv2.resizeWindow(self.__window_name__, self.__window_width__, self.__window_height__)
@@ -145,14 +142,19 @@ class Kinect:
         return color_gamma
 
 
+    def __depth_to_m__(self, depth):
+        # Convert depth from raw units to meters!
+        # Derived 'depth formula' for the Kinect v1
+        depth_m = 1.0 / (depth * -0.0030711016 + 3.3309495161) # Depth in 'm'
+        return depth_m
+
+
     # Convert raw depth data to physical data
     def __depth_to_physical__(self, x, y, depth):
         if depth == 0:
             return None, None, None
-        
-        # Convert depth from raw units to meters!
-        # Derived 'depth formula' for the Kinect v1
-        depth_m = 1.0 / (depth * -0.0030711016 + 3.3309495161) # Depth in 'm'
+                
+        depth_m = self.__depth_to_m__(depth)
         
         # Convert to world coordinates in millimeters (mm)
         phys_x = ((x - Kinect.OPTICAL_CENTER_X) * depth_m / Kinect.FOCAL_LENGTH_X) * 1000 # Convert to 'mm'
@@ -160,6 +162,18 @@ class Kinect:
         phys_z = depth_m * 1000
         
         return phys_x, phys_y, phys_z # In 'mm'
+
+
+    def __depth_to_physical__(self, depth):
+        if depth is None:
+            return None
+        
+        if len(depth) == 0:
+            return None
+
+        depth_mm = 1000 * self.__depth_to_m__(depth)
+        
+        return depth_mm
 
 
     # Returns an extended point cloud data
@@ -373,24 +387,63 @@ class Kinect:
                         thickness=1,
                         lineType=1)
 
-
         return cv2_depth_frame
     
 
     # Get point cloud rendered frame
-    def __get_pcd_frame__(self):
-        cv2_pcd_frame = None
+    def __get_pcd_frame__(self, pixel_stepping: int = 4):
+        cv2_pcd_frame = np.zeros((480, 640, 3), dtype=np.uint8)
+
+        skip = pixel_stepping
+        grid_y, grid_x = np.mgrid[0:480:skip, 0:640:skip]
+        grid_y_flat = grid_y.ravel()
+        grid_x_flat = grid_x.ravel()
+
+        raw_depth = self.__get_depth_data__()
+        
+        sampled_depth = raw_depth[grid_y, grid_x].ravel()
+        mask = (sampled_depth >= Kinect.MIN_OPERATIONAL_SENSOR_DEPTH) & (sampled_depth <= Kinect.MAX_OPERATIONAL_SENSOR_DEPTH)
+
+        if np.any(mask):
+            phys_z = self.__depth_to_physical__(sampled_depth[mask])
+            valid_x = grid_x_flat[mask]
+            valid_y = grid_y_flat[mask]
+
+            min_depth = np.min(phys_z)
+            max_depth = np.max(phys_z)
+            depth_range = max_depth - min_depth if max_depth != min_depth else 1
+
+            intensities = (255 * (1 - (phys_z - min_depth) / depth_range)).astype(np.uint8)
+            cv2_pcd_frame[valid_y, valid_x, :] = intensities[:, None]
+
+            # Put a descriptive text into the frame
+            cv2.putText(cv2_pcd_frame,
+                        f"Point cloud (operational depth only)",
+                        org=(5, 25),
+                        fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                        color=Kinect.COLOR_WHITE,
+                        fontScale=0.65,
+                        thickness=1,
+                        lineType=1)
+
         return cv2_pcd_frame
 
 
-    def __get_drivining_scene_frame__(self):
+    def __get_driving_scene_frame__(self):
         cv2_drive_frame = None
+
+        # Temp
+        cv2_drive_frame = np.zeros((480, 640, 3), dtype=np.uint8) + 50
+
         return cv2_drive_frame
     
 
     def __get_cv2_frame__(self):
         cv2_frame = None
 
+        # -----------------------
+        # RGB and Depth color map
+        # -----------------------
         cv2_frame_h1 = None
         cv2_depth_frame = self.__get_depth_frame__()
         cv2_rgb_frame = self.__get_rgb_frame__()
@@ -398,13 +451,15 @@ class Kinect:
         if cv2_depth_frame is not None and cv2_rgb_frame is not None:
             cv2_frame_h1 = np.hstack((cv2_depth_frame, cv2_rgb_frame))
         
-
+        # -----------------------------
+        # Point cloud and driving scene
+        # -----------------------------
         cv2_frame_h2 = None
         cv2_pcd_frame = self.__get_pcd_frame__()
-        cv2_drive_frame = self.__get_drivining_scene_frame__()
+        cv2_drive_frame = self.__get_driving_scene_frame__()
 
         if cv2_pcd_frame is not None and cv2_drive_frame is not None:
-            pass
+            cv2_frame_h2 = np.hstack((cv2_pcd_frame, cv2_drive_frame))
         
         if cv2_frame_h1 is not None:
             if cv2_frame_h2 is not None:
