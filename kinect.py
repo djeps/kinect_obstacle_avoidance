@@ -1,5 +1,5 @@
-import sys
 import os
+import sys
 import freenect as kinect
 import cv2
 import pyautogui
@@ -32,6 +32,25 @@ def suppress_stderr():
             yield
         finally:
             sys.stderr = old_stderr
+
+class SuppressNativePrints:
+    def __enter__(self):
+        self._stdout_fd = sys.stdout.fileno()
+        self._stderr_fd = sys.stderr.fileno()
+
+        self._saved_stdout = os.dup(self._stdout_fd)
+        self._saved_stderr = os.dup(self._stderr_fd)
+
+        self._devnull = os.open(os.devnull, os.O_WRONLY)
+        os.dup2(self._devnull, self._stdout_fd)
+        os.dup2(self._devnull, self._stderr_fd)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        os.dup2(self._saved_stdout, self._stdout_fd)
+        os.dup2(self._saved_stderr, self._stderr_fd)
+        os.close(self._devnull)
+        os.close(self._saved_stdout)
+        os.close(self._saved_stderr)
 
 
 class Kinect:
@@ -154,18 +173,6 @@ class Kinect:
         return color_gamma
 
 
-    def __get_depth_data__(self):
-        raw_depth_data = None
-
-        try:
-            with suppress_stdout(), suppress_stderr():
-                raw_depth_data = kinect.sync_get_depth()[0]
-        except Exception as e:
-            print(f"=> An unexpected error occurred when returning a Kinect depth frame: {e}")
-        
-        return raw_depth_data
-
-
     # Convert raw depth data to physical data
     def __depth_to_physical__(self, x, y, depth):
         if depth == 0:
@@ -173,14 +180,14 @@ class Kinect:
         
         # Convert depth from raw units to meters!
         # Derived 'depth formula' for the Kinect v1
-        depth_m = 1.0 / (depth * -0.0030711016 + 3.3309495161)
+        depth_m = 1.0 / (depth * -0.0030711016 + 3.3309495161) # Depth in 'm'
         
         # Convert to world coordinates in millimeters (mm)
-        phys_x = ((x - Kinect.OPTICAL_CENTER_X) * depth_m / Kinect.FOCAL_LENGTH_X) * 1000
-        phys_y = ((y - Kinect.OPTICAL_CENTER_Y) * depth_m / Kinect.FOCAL_LENGTH_Y) * 1000
+        phys_x = ((x - Kinect.OPTICAL_CENTER_X) * depth_m / Kinect.FOCAL_LENGTH_X) * 1000 # Convert to 'mm'
+        phys_y = ((y - Kinect.OPTICAL_CENTER_Y) * depth_m / Kinect.FOCAL_LENGTH_Y) * 1000 # Convert to 'mm'
         phys_z = depth_m * 1000
         
-        return phys_x, phys_y, phys_z
+        return phys_x, phys_y, phys_z # In 'mm'
 
 
     # Returns an extended point cloud data
@@ -249,6 +256,11 @@ class Kinect:
         return self.__get_point_cloud_ext__(sensor_range, pixel_stepping)
 
 
+    # TODO: Add another positional argument after 'pixels': 'operational_pcd'
+    #       of type 'bool' and 'True' by default
+    #       Modify the function to look for the closest/furthest point
+    #       within the operational point cloud data (by default), or
+    #       within the entire visible range of the Kinect 
     def __get_min_max_points__(self, points, pixels, in_xyz_space: bool = True):
         # The Kinect's origin is at (0, 0, 0)
         # When:
@@ -282,6 +294,7 @@ class Kinect:
         return (closest, furthest)
 
 
+    # TODO: Modify the output (e.g. 'one liner', something like a formatted JSON string)
     # Analyze point cloud
     def analyze_point_cloud_data(self, point_cloud_data, in_xyz_space: bool = True):
         # Get point cloud data
@@ -334,11 +347,12 @@ class Kinect:
             
             print('\n')
 
+
     def __get_rgb_data__(self):
         rgb_data = None
 
         try:
-            with suppress_stdout(), suppress_stderr():
+            with SuppressNativePrints():
                 rgb_data = kinect.sync_get_video()[0]
         except Exception as e:
             print(f"=> An unexpected error occurred when returning a Kinect RGB frame: {e}")
@@ -347,23 +361,105 @@ class Kinect:
     
 
     def __get_rgb_frame__(self):
-        return self.__get_rgb_data__()
+        cv2_rgb_frame = None
+
+        rgb_frame = self.__get_rgb_data__()
+
+        if rgb_frame is not None:
+            # Convert from RGB to BGR for OpenCV
+            cv2_rgb_frame = cv2.cvtColor(rgb_frame, cv2.COLOR_RGB2BGR)
+            
+            # Put a descriptive text into the frame
+            cv2.putText(cv2_rgb_frame,
+                        f"RGB camera view",
+                        org=(5, 25),
+                        fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                        color=Kinect.COLOR_WHITE,
+                        fontScale=0.65,
+                        thickness=1,
+                        lineType=1)
+        
+        return cv2_rgb_frame
+
+
+    def __get_depth_data__(self):
+        raw_depth_data = None
+
+        try:
+            with SuppressNativePrints():
+                raw_depth_data = kinect.sync_get_depth()[0]
+        except Exception as e:
+            print(f"=> An unexpected error occurred when returning a Kinect depth frame: {e}")
+        
+        return raw_depth_data
 
 
     def __get_depth_frame__(self):
-        kinect_frame_color = None
+        cv2_depth_frame = None
 
-        kinect_frame_raw = self.__get_depth_data__()
+        depth_frame_raw = self.__get_depth_data__()
 
-        if kinect_frame_raw is not None:
+        if depth_frame_raw is not None:
             # Clip to a valid range
             # Basically points within the visible range of the Kinect
-            kinect_frame_clipped = np.clip(kinect_frame_raw, Kinect.MIN_VISIBLE_SENSOR_DEPTH, Kinect.MAX_VISIBLE_SENSOR_DEPTH)
+            depth_frame_clipped = np.clip(depth_frame_raw, Kinect.MIN_VISIBLE_SENSOR_DEPTH, Kinect.MAX_VISIBLE_SENSOR_DEPTH)
             
             # Apply gamma correction to depth data
-            kinect_frame_color = self.__color_gamma__[kinect_frame_clipped]
+            depth_frame_color = self.__color_gamma__[depth_frame_clipped]
 
-        return kinect_frame_color
+            # Convert from RGB to BGR for OpenCV
+            cv2_depth_frame = cv2.cvtColor(depth_frame_color, cv2.COLOR_RGB2BGR)
+
+            # Put a descriptive text into the frame
+            cv2.putText(cv2_depth_frame,
+                        f"Depth view (color map)",
+                        org=(5, 25),
+                        fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                        color=Kinect.COLOR_BLACK,
+                        fontScale=0.65,
+                        thickness=1,
+                        lineType=1)
+
+
+        return cv2_depth_frame
+    
+
+    # Get point cloud rendered frame
+    def __get_pcd_frame__(self):
+        cv2_pcd_frame = None
+        return cv2_pcd_frame
+
+
+    def __get_drivining_scene_frame__(self):
+        cv2_drive_frame = None
+        return cv2_drive_frame
+    
+
+    def __get_cv2_frame__(self):
+        cv2_frame = None
+
+        cv2_frame_h1 = None
+        cv2_depth_frame = self.__get_depth_frame__()
+        cv2_rgb_frame = self.__get_rgb_frame__()
+
+        if cv2_depth_frame is not None and cv2_rgb_frame is not None:
+            cv2_frame_h1 = np.hstack((cv2_depth_frame, cv2_rgb_frame))
+        
+
+        cv2_frame_h2 = None
+        cv2_pcd_frame = self.__get_pcd_frame__()
+        cv2_drive_frame = self.__get_drivining_scene_frame__()
+
+        if cv2_pcd_frame is not None and cv2_drive_frame is not None:
+            pass
+        
+        if cv2_frame_h1 is not None:
+            if cv2_frame_h2 is not None:
+                cv2_frame = np.vstack((cv2_frame_h1, cv2_frame_h2))
+            else:
+                cv2_frame = cv2_frame_h1
+
+        return cv2_frame
     
 
     def __show_at__(self, cv2_frame, x_pos: int, y_pos: int):
@@ -377,51 +473,13 @@ class Kinect:
         self.__show_at__(cv2_frame, x_pos_center, y_pos_center)
 
 
-    def __get_cv2_frame__(self):
-        cv2_frame = None
-
-        if self.__display_mode__ == Kinect.RGB_ONLY:
-            kinect_frame_plain = self.__get_rgb_frame__()
-
-            if kinect_frame_plain is not None:
-                # Convert from RGB to BGR for OpenCV
-                cv2_frame = cv2.cvtColor(kinect_frame_plain, cv2.COLOR_RGB2BGR)
-
-        elif self.__display_mode__ == Kinect.DEPTH_ONLY:
-            kinect_frame_depth = self.__get_depth_frame__()
-
-            if kinect_frame_depth is not None:
-                # Convert from RGB to BGR for OpenCV
-                cv2_frame = cv2.cvtColor(kinect_frame_depth, cv2.COLOR_RGB2BGR)
-
-        elif self.__display_mode__ == Kinect.RGB_AND_DEPTH:
-            kinect_frame_plain = self.__get_rgb_frame__()
-            kinect_frame_depth = self.__get_depth_frame__()
-
-            if (kinect_frame_plain is not None) and (kinect_frame_depth is not None):
-                # Convert from RGB to BGR for OpenCV
-                cv2_frame_depth = cv2.cvtColor(kinect_frame_depth, cv2.COLOR_RGB2BGR)
-                cv2_frame_plain = cv2.cvtColor(kinect_frame_plain, cv2.COLOR_RGB2BGR)
-
-                cv2.putText(cv2_frame_plain, f"RGB camera view", org=(10, 20), fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                            color=Kinect.COLOR_WHITE, fontScale=0.5, thickness=1, lineType=1)
-                
-                cv2.putText(cv2_frame_depth, f"Depth view (color map)", org=(10, 20), fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                            color=Kinect.COLOR_BLACK, fontScale=0.5, thickness=1, lineType=1)
-                
-
-                # Combine streams horizontally
-                cv2_frame = np.hstack((cv2_frame_depth, cv2_frame_plain))
-        
-        return cv2_frame
-    
-
     def run(self, x_pos: int = -1, y_pos: int = -1):
         while True:
             cv2_frame = self.__get_cv2_frame__()
 
             # Abort if there's no frame
             if cv2_frame is None:
+                print("=> Error! Nothing to display (no frames are available).")
                 break
 
             if (x_pos >= 0) and (y_pos >= 0):
@@ -429,11 +487,18 @@ class Kinect:
             else:
                 self.__show_centered__(cv2_frame)
 
-            if cv2.waitKey(1) & 0xFF == 27:  # Esc key to stop
-                break
+            key_pressed = cv2.waitKey(150) # Wait for a key event for 250ms
 
-            # TODO: When '1' pressed - print closest and furthest point info (XYZ space)
-            # TODO: When '2' pressed - print closest and furthest point info (ground plane)
+            if key_pressed == ord('1'):
+                print("*** You pressed: 1")
+            elif key_pressed == ord ('2'):
+                print("*** You pressed: 2")
+            elif key_pressed == ord('3'):
+                print("*** You pressed: 3")
+            elif key_pressed == ord('4'):
+                print("*** You pressed: 4")
+            elif key_pressed == 27:
+                break # ESC was pressed
 
         cv2.destroyAllWindows()
 
