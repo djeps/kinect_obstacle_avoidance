@@ -53,6 +53,8 @@ class Kinect:
     DEPTH_ONLY = 2
     RGB_AND_DEPTH = 3
     DISPLAY_MODES = {RGB_ONLY, DEPTH_ONLY, RGB_AND_DEPTH}
+    COLOR_BLACK = (0, 0, 0)
+    COLOR_WHITE = (255, 255, 255)
 
     # ----------------
     # Sensor constants
@@ -398,8 +400,15 @@ class Kinect:
 
             if (kinect_frame_plain is not None) and (kinect_frame_depth is not None):
                 # Convert from RGB to BGR for OpenCV
-                cv2_frame_plain = cv2.cvtColor(kinect_frame_plain, cv2.COLOR_RGB2BGR)
                 cv2_frame_depth = cv2.cvtColor(kinect_frame_depth, cv2.COLOR_RGB2BGR)
+                cv2_frame_plain = cv2.cvtColor(kinect_frame_plain, cv2.COLOR_RGB2BGR)
+
+                cv2.putText(cv2_frame_plain, f"RGB camera view", org=(10, 20), fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                            color=Kinect.COLOR_WHITE, fontScale=0.5, thickness=1, lineType=1)
+                
+                cv2.putText(cv2_frame_depth, f"Depth view (color map)", org=(10, 20), fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                            color=Kinect.COLOR_BLACK, fontScale=0.5, thickness=1, lineType=1)
+                
 
                 # Combine streams horizontally
                 cv2_frame = np.hstack((cv2_frame_depth, cv2_frame_plain))
@@ -423,12 +432,15 @@ class Kinect:
             if cv2.waitKey(1) & 0xFF == 27:  # Esc key to stop
                 break
 
+            # TODO: When '1' pressed - print closest and furthest point info (XYZ space)
+            # TODO: When '2' pressed - print closest and furthest point info (ground plane)
+
         cv2.destroyAllWindows()
 
 
 if __name__ == '__main__':
-    print("=> Kinect sensor demo...")
-    sensor = Kinect("Kinect RGB & Depth (ESC to quit)", display_mode=Kinect.RGB_AND_DEPTH)
+    print("=> Kinect 'obstacle avoidance' POC demo...")
+    sensor = Kinect("Kinect 'obstacle avoidance' POC demo... (ESC to quit)", display_mode=Kinect.RGB_AND_DEPTH)
 
     # sensor.run() - will display the feed from the sensor centered
     # sensor.run(x_pos=0, y_pos=0) - will display the feed from the sensor at the specified position
