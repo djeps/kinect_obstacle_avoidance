@@ -498,18 +498,22 @@ class Kinect:
             key_pressed = cv2.waitKey(150) # Wait for a key event for 250ms
 
             if key_pressed == ord('1'):
+                print("=> Sensor range: optimal")
                 point_cloud_data = sensor.get_point_cloud_data(Kinect.SENSOR_RANGE.OPTIMAL)
                 sensor.analyze_point_cloud_data(point_cloud_data, in_xyz_space=True)
             
             elif key_pressed == ord ('2'):
-                point_cloud_data = sensor.get_point_cloud_data(Kinect.SENSOR_RANGE.OPTIMAL)
-                sensor.analyze_point_cloud_data(point_cloud_data, in_xyz_space=False)
-            
-            elif key_pressed == ord('3'):
+                print("=> Sensor range: operational")
                 point_cloud_data = sensor.get_point_cloud_data(Kinect.SENSOR_RANGE.OPERATIONAL)
                 sensor.analyze_point_cloud_data(point_cloud_data, in_xyz_space=True)
             
+            elif key_pressed == ord('3'):
+                print("=> Sensor range: optimal")
+                point_cloud_data = sensor.get_point_cloud_data(Kinect.SENSOR_RANGE.OPTIMAL)
+                sensor.analyze_point_cloud_data(point_cloud_data, in_xyz_space=False)
+            
             elif key_pressed == ord('4'):
+                print("=> Sensor range: operational")
                 point_cloud_data = sensor.get_point_cloud_data(Kinect.SENSOR_RANGE.OPERATIONAL)
                 sensor.analyze_point_cloud_data(point_cloud_data, in_xyz_space=False)
             
