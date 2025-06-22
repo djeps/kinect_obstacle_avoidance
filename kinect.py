@@ -7,50 +7,20 @@ import numpy as np
 import math
 
 from open3d import geometry, utility, visualization
-from contextlib import contextmanager
+from typing import NamedTuple
+from suppressor import SuppressNativePrints
 
 
-# Suppress output on 'stdout'
-@contextmanager
-def suppress_stdout():
-    with open(os.devnull, "w") as devnull:
-        old_stdout = sys.stdout
-        sys.stdout = devnull
-        try:
-            yield
-        finally:
-            sys.stdout = old_stdout
+class DisplayMode(NamedTuple):
+    RGB: int
+    DEPTH: int
+    RGB_AND_DEPT: int
 
 
-# Suppress output on 'stderr'
-@contextmanager
-def suppress_stderr():
-    with open(os.devnull, "w") as devnull:
-        old_stderr = sys.stderr
-        sys.stderr = devnull
-        try:
-            yield
-        finally:
-            sys.stderr = old_stderr
-
-class SuppressNativePrints:
-    def __enter__(self):
-        self._stdout_fd = sys.stdout.fileno()
-        self._stderr_fd = sys.stderr.fileno()
-
-        self._saved_stdout = os.dup(self._stdout_fd)
-        self._saved_stderr = os.dup(self._stderr_fd)
-
-        self._devnull = os.open(os.devnull, os.O_WRONLY)
-        os.dup2(self._devnull, self._stdout_fd)
-        os.dup2(self._devnull, self._stderr_fd)
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        os.dup2(self._saved_stdout, self._stdout_fd)
-        os.dup2(self._saved_stderr, self._stderr_fd)
-        os.close(self._devnull)
-        os.close(self._saved_stdout)
-        os.close(self._saved_stderr)
+class SensorRange(NamedTuple):
+    FULL: int
+    OPTIMAL: int
+    OPERATIONAL: int
 
 
 class Kinect:
@@ -71,7 +41,7 @@ class Kinect:
     RGB_ONLY = 1
     DEPTH_ONLY = 2
     RGB_AND_DEPTH = 3
-    DISPLAY_MODES = {RGB_ONLY, DEPTH_ONLY, RGB_AND_DEPTH}
+    DISPLAY_MODE = DisplayMode(RGB=RGB_ONLY, DEPTH=DEPTH_ONLY, RGB_AND_DEPT=RGB_AND_DEPTH)
     COLOR_BLACK = (0, 0, 0)
     COLOR_WHITE = (255, 255, 255)
 
@@ -85,15 +55,17 @@ class Kinect:
     SENSOR_RESOLUTION = 2048
     SENSOR_FULL_RANGE = 1
     SENSOR_OPTIMAL_RANGE = 2
+    SENSOR_OPERATIONAL_RANGE = 3
+    SENSOR_RANGE = SensorRange(FULL=SENSOR_FULL_RANGE, OPTIMAL=SENSOR_OPTIMAL_RANGE, OPERATIONAL=SENSOR_OPERATIONAL_RANGE)
     MIN_VISIBLE_SENSOR_DEPTH = 0
     MAX_VISIBLE_SENSOR_DEPTH = SENSOR_RESOLUTION - 1
     MIN_OPTIMAL_SENSOR_DEPTH = 200
     MAX_OPTIMAL_SENSOR_DEPTH = 1600
-    OPTIMAL_SENSOR_DEPTH = 500
-    OPTIMAL_SENSOR_DEPTH = 900
+    MIN_OPERATIONAL_SENSOR_DEPTH = 500
+    MAX_OPERATIONAL_SENSOR_DEPTH = 900
 
-    def __init__(self, window_name: str, display_mode: int = 1):
-        if display_mode not in Kinect.DISPLAY_MODES:
+    def __init__(self, window_name: str, display_mode: int = DISPLAY_MODE.RGB):
+        if display_mode not in Kinect.DISPLAY_MODE:
             raise ValueError("Incorrect display mode! Allowed modes: RGB_ONLY, DEPTH_ONLY, RGB_AND_DEPTH.")
     
         self.__display_mode__ = display_mode
@@ -192,7 +164,7 @@ class Kinect:
 
     # Returns an extended point cloud data
     # A tuple representing 0-the actual point cloud and 1-color mappings for each point in the cloud
-    def __get_point_cloud_ext__(self, sensor_range: int = 1, pixel_stepping: int = 4):
+    def __get_point_cloud_ext__(self, sensor_range: int = SENSOR_RANGE.FULL, pixel_stepping: int = 4):
         raw_depth_data = self.__get_depth_data__()
 
         points = None
@@ -211,13 +183,16 @@ class Kinect:
                 for x in range(0, raw_depth_data.shape[1], skip):
                     depth_value = raw_depth_data[y, x]
                     
-                    # Skip invalid depth readings depending on the selected sensor range 
-                    if sensor_range == Kinect.SENSOR_OPTIMAL_RANGE:
-                        if depth_value == Kinect.MIN_OPTIMAL_SENSOR_DEPTH or depth_value > Kinect.MAX_OPTIMAL_SENSOR_DEPTH:
-                            continue # No further loop processing
-                    else:
-                        if depth_value == Kinect.MIN_VISIBLE_SENSOR_DEPTH or depth_value > Kinect.MAX_VISIBLE_SENSOR_DEPTH:
-                            continue # No further loop processing
+                    # Skip invalid depth readings depending on the selected sensor range
+                    if sensor_range == Kinect.SENSOR_RANGE.FULL:
+                        if not(Kinect.MIN_VISIBLE_SENSOR_DEPTH < depth_value < Kinect.MAX_VISIBLE_SENSOR_DEPTH):
+                            continue
+                    elif sensor_range == Kinect.SENSOR_RANGE.OPTIMAL:
+                        if not(Kinect.MIN_OPTIMAL_SENSOR_DEPTH < depth_value < Kinect.MAX_OPTIMAL_SENSOR_DEPTH):
+                            continue
+                    elif sensor_range == Kinect.SENSOR_RANGE.OPERATIONAL:
+                        if not(Kinect.MIN_OPERATIONAL_SENSOR_DEPTH < depth_value < Kinect.MAX_OPERATIONAL_SENSOR_DEPTH):
+                            continue
                     
                     # Otherwise...
                     # Convert to physical coordinates
@@ -256,11 +231,6 @@ class Kinect:
         return self.__get_point_cloud_ext__(sensor_range, pixel_stepping)
 
 
-    # TODO: Add another positional argument after 'pixels': 'operational_pcd'
-    #       of type 'bool' and 'True' by default
-    #       Modify the function to look for the closest/furthest point
-    #       within the operational point cloud data (by default), or
-    #       within the entire visible range of the Kinect 
     def __get_min_max_points__(self, points, pixels, in_xyz_space: bool = True):
         # The Kinect's origin is at (0, 0, 0)
         # When:
@@ -294,8 +264,6 @@ class Kinect:
         return (closest, furthest)
 
 
-    # TODO: Modify the output (e.g. 'one liner', something like a formatted JSON string)
-    # Analyze point cloud
     def analyze_point_cloud_data(self, point_cloud_data, in_xyz_space: bool = True):
         # Get point cloud data
         points, pixels, _ = point_cloud_data
@@ -327,7 +295,7 @@ class Kinect:
             msg = ''.join(("=> Furthest: ",
                            f"Point = ({furthest_point[0]:.1f}, {furthest_point[1]:.1f}, {furthest_point[2]:.1f}) [mm]; ",
                            f"Pixel = ({furthest_pixel[0]}, {furthest_pixel[1]}); ",
-                           f"Distance = {closest_dist:.1f}mm"))
+                           f"Distance = {furthest_dist:.1f}mm"))
             print(msg)
 
             print(f"=> Range = {furthest_dist - closest_dist:.1f}mm; Ratio = x {furthest_dist / closest_dist:.2f}")
@@ -475,16 +443,20 @@ class Kinect:
             key_pressed = cv2.waitKey(150) # Wait for a key event for 250ms
 
             if key_pressed == ord('1'):
-                print("*** You pressed: 1")
+                point_cloud_data = sensor.get_point_cloud_data(Kinect.SENSOR_RANGE.OPTIMAL)
+                sensor.analyze_point_cloud_data(point_cloud_data, in_xyz_space=True)
             
             elif key_pressed == ord ('2'):
-                print("*** You pressed: 2")
+                point_cloud_data = sensor.get_point_cloud_data(Kinect.SENSOR_RANGE.OPTIMAL)
+                sensor.analyze_point_cloud_data(point_cloud_data, in_xyz_space=False)
             
             elif key_pressed == ord('3'):
-                print("*** You pressed: 3")
+                point_cloud_data = sensor.get_point_cloud_data(Kinect.SENSOR_RANGE.OPERATIONAL)
+                sensor.analyze_point_cloud_data(point_cloud_data, in_xyz_space=True)
             
             elif key_pressed == ord('4'):
-                print("*** You pressed: 4")
+                point_cloud_data = sensor.get_point_cloud_data(Kinect.SENSOR_RANGE.OPERATIONAL)
+                sensor.analyze_point_cloud_data(point_cloud_data, in_xyz_space=False)
             
             elif key_pressed == ord('0'):
                 os.system('clear')
@@ -504,8 +476,5 @@ if __name__ == '__main__':
     # sensor.run(x_pos=0, y_pos=0) - will display the feed from the sensor at the specified position
     sensor.run() # Will display the window center
 
-    point_cloud_data = sensor.get_point_cloud_data(Kinect.SENSOR_OPTIMAL_RANGE)
-    sensor.analyze_point_cloud_data(point_cloud_data, in_xyz_space=True)
-    # sensor.analyze_point_cloud_data(point_cloud_data, in_xyz_space=False)
 
     print("=> Done.")
