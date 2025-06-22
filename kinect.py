@@ -304,11 +304,10 @@ class Kinect:
             print("=> No valid points found!")
             return
         
-        print("=> Analyzing point cloud data...\n")
-        print("   Valid point cloud data.")
-        print(f"   Available: {len(points)} 3D points.\n")
-        print("   Summary:")
-        print('\n')
+        print("=> Analyzing point cloud data...")
+        print("=> Valid point cloud data.")
+        space = "XYZ" if in_xyz_space else "Ground plane"
+        print(f"=> Points = {len(points)}; Space = {space}")
         
         # Find closest and furthest points
         closest, furthest = self.__get_min_max_points__(points, pixels, in_xyz_space=in_xyz_space)
@@ -316,36 +315,22 @@ class Kinect:
         closest_point, closest_pixel, closest_dist = closest
         furthest_point, furthest_pixel, furthest_dist = furthest
         
-        # If at least we have the closest point identified, the point cloud data is valid
+        # If we have identified at least the closest point, the point cloud data is valid
         # and we can proceed further with post-processing
         if closest_point is not None:
-            msg = "XYZ space" if in_xyz_space else "ground plane!"
-            msg = f"   CLOSEST POINT TO KINECT ({msg}):"
+            msg = ''.join(("=> Closest: ",
+                           f"Point = ({closest_point[0]:.1f}, {closest_point[1]:.1f}, {closest_point[2]:.1f}) [mm]; ",
+                           f"Pixel = ({closest_pixel[0]}, {closest_pixel[1]}); ",
+                           f"Distance = {closest_dist:.1f}mm"))
             print(msg)
-            print('   ', end='')
-            print('-' * 45)
 
-            print(f"   3D Coordinates: ({closest_point[0]:.1f}, {closest_point[1]:.1f}, {closest_point[2]:.1f})mm")
-            print(f"   Pixel Location: ({closest_pixel[0]}, {closest_pixel[1]})")
-            print(f"   Distance: {closest_dist:.1f}mm ({closest_dist/1000:.2f}m)")
-            
-            print('\n')
-
-            msg = "XYZ space" if in_xyz_space else "ground plane!"
-            msg = f"   FURTHEST POINT FROM KINECT ({msg}):"
+            msg = ''.join(("=> Furthest: ",
+                           f"Point = ({furthest_point[0]:.1f}, {furthest_point[1]:.1f}, {furthest_point[2]:.1f}) [mm]; ",
+                           f"Pixel = ({furthest_pixel[0]}, {furthest_pixel[1]}); ",
+                           f"Distance = {closest_dist:.1f}mm"))
             print(msg)
-            print('   ', end='')
-            print('-' * 45)
-            
-            print(f"   3D Coordinates: ({furthest_point[0]:.1f}, {furthest_point[1]:.1f}, {furthest_point[2]:.1f})mm")
-            print(f"   Pixel Location: ({furthest_pixel[0]}, {furthest_pixel[1]})")
-            print(f"   Distance: {furthest_dist:.1f}mm ({furthest_dist/1000:.2f}m)")
-            
-            print("   ---")
-            print(f"   Distance Range: {furthest_dist - closest_dist:.1f}mm")
-            print(f"   Distance Ratio: {furthest_dist / closest_dist:.2f}x")
-            
-            print('\n')
+
+            print(f"=> Range = {furthest_dist - closest_dist:.1f}mm; Ratio = x {furthest_dist / closest_dist:.2f}")
 
 
     def __get_rgb_data__(self):
@@ -491,12 +476,20 @@ class Kinect:
 
             if key_pressed == ord('1'):
                 print("*** You pressed: 1")
+            
             elif key_pressed == ord ('2'):
                 print("*** You pressed: 2")
+            
             elif key_pressed == ord('3'):
                 print("*** You pressed: 3")
+            
             elif key_pressed == ord('4'):
                 print("*** You pressed: 4")
+            
+            elif key_pressed == ord('0'):
+                os.system('clear')
+                print("=> Screen output cleared.")
+            
             elif key_pressed == 27:
                 break # ESC was pressed
 
