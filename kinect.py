@@ -164,7 +164,7 @@ class Kinect:
         return phys_x, phys_y, phys_z # In 'mm'
 
 
-    def __depth_to_physical__(self, depth):
+    def __depth_array_to_physical__(self, depth):
         if depth is None:
             return None
         
@@ -405,7 +405,7 @@ class Kinect:
         mask = (sampled_depth >= Kinect.MIN_OPERATIONAL_SENSOR_DEPTH) & (sampled_depth <= Kinect.MAX_OPERATIONAL_SENSOR_DEPTH)
 
         if np.any(mask):
-            phys_z = self.__depth_to_physical__(sampled_depth[mask])
+            phys_z = self.__depth_array_to_physical__(sampled_depth[mask])
             valid_x = grid_x_flat[mask]
             valid_y = grid_y_flat[mask]
 
