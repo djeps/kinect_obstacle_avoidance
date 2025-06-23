@@ -32,6 +32,7 @@ class Kinect:
     DEFAULT_SCREEN_HEIGHT = 976
     DEFAULT_WINDOW_WIDTH = 640
     DEFAULT_WINDOW_HEIGHT = 480
+    KEY_WAIT_DELAY_MS = 150
 
     # ----------------
     # Colors and modes
@@ -42,8 +43,16 @@ class Kinect:
     DEPTH_ONLY = 2
     RGB_AND_DEPTH = 3
     DISPLAY_MODE = DisplayMode(RGB=RGB_ONLY, DEPTH=DEPTH_ONLY, RGB_AND_DEPT=RGB_AND_DEPTH)
+    # The color model in OpenCV is BGR (not RGB!)
     COLOR_BLACK = (0, 0, 0)
     COLOR_WHITE = (255, 255, 255)
+    COLOR_GRAY = (100, 100, 100)
+    COLOR_BLUE = (255, 0, 0)
+    COLOR_RED = (255, 0, 0)
+    COLOR_CYAN = (255, 255, 0)
+    COLOR_GREEN = (0, 255, 0)
+    COLOR_YELLOW = (0, 255, 255)
+    COLOR_MAGENTA = (255, 0, 255)
 
     # ----------------
     # Sensor constants
@@ -63,6 +72,18 @@ class Kinect:
     MAX_OPTIMAL_SENSOR_DEPTH = 1600
     MIN_OPERATIONAL_SENSOR_DEPTH = 500
     MAX_OPERATIONAL_SENSOR_DEPTH = 900
+
+    # ----------------
+    # Lane positioning
+    # ----------------
+    VANISHING_POINT_X_RATIO = 0.5   # How inward the vanishing point is (0.5 = 50% from the left)
+    VANISHING_POINT_Y_RATIO = 0.35  # How high up the vanishing point is (0.35 = 35% from top)
+    LANE_WIDTH_BOTTOM_RATIO = 0.6   # Lane width at bottom as ratio of screen width
+    LANE_WIDTH_TOP_RATIO = 0.18     # Lane width at vanishing point as ratio of screen width
+    MAX_CURVE_DEGREE_RIGHT = 3.0
+    MAX_CURVE_DEGREE_LEFT = -3.0
+    CURVE_STEP = 0.05
+
 
     def __init__(self, window_name: str, display_mode: int = DISPLAY_MODE.RGB):
         if display_mode not in Kinect.DISPLAY_MODE:
@@ -418,7 +439,7 @@ class Kinect:
 
             # Put a descriptive text into the frame
             cv2.putText(cv2_pcd_frame,
-                        f"Point cloud (operational depth only)",
+                        f"Point cloud (operational depth)",
                         org=(5, 25),
                         fontFace=cv2.FONT_HERSHEY_SIMPLEX,
                         color=Kinect.COLOR_WHITE,
@@ -429,16 +450,189 @@ class Kinect:
         return cv2_pcd_frame
 
 
-    def __get_driving_scene_frame__(self):
-        cv2_drive_frame = None
+    def __draw_horizontal_line__(self, img, y_ratio_from_top, line_type = 'solid', thickness = 1, color = COLOR_WHITE):
+        height, width = img.shape[:2]
+        y_from_bottom = int(height * (1 - y_ratio_from_top))
+        y = height - y_from_bottom
+        
+        if line_type == 'solid':
+            cv2.line(img, (0, y), (width, y), color, thickness, cv2.LINE_8)
+        else:
+            if line_type == 'dashed_sparse':
+                dash_length = max(int(width * 0.03), 10)
+                gap_length = max(int(width * 0.03), 10)
+            elif line_type == 'dashed_dense':
+                dash_length = max(int(width * 0.015), 5)
+                gap_length = max(int(width * 0.008), 3)
+            else:
+                cv2.line(img, (0, y), (width, y), color, thickness, cv2.LINE_8)
+                return img
+            
+            x = 0
+            while x < width:
+                end_x = min(x + dash_length, width)
+                cv2.line(img, (x, y), (end_x, y), color, thickness, cv2.LINE_8)
+                x += dash_length + gap_length
+    
+        return img
+    
 
-        # Temp
-        cv2_drive_frame = np.zeros((480, 640, 3), dtype=np.uint8) + 50
+    def __draw_perspective_lane__(self,
+                                  img,
+                                  vanishing_point_ratio = (VANISHING_POINT_X_RATIO, VANISHING_POINT_Y_RATIO),
+                                  lane_width_bottom = LANE_WIDTH_BOTTOM_RATIO,
+                                  lane_width_top = LANE_WIDTH_TOP_RATIO,
+                                  line_color = COLOR_WHITE, thickness=1):
+        height, width = img.shape[:2]
+        vanishing_x = int(width * vanishing_point_ratio[0])
+        vanishing_y = int(height * vanishing_point_ratio[1])
+        
+        bottom_center = width // 2
+        bottom_half_width = int(width * lane_width_bottom / 2)
+        bottom_left = bottom_center - bottom_half_width
+        bottom_right = bottom_center + bottom_half_width
+        
+        top_half_width = int(width * lane_width_top / 2)
+        top_left = vanishing_x - top_half_width
+        top_right = vanishing_x + top_half_width
+        
+        cv2.line(img, (bottom_left, height - 1), (top_left, vanishing_y), line_color, thickness, cv2.LINE_AA)
+        cv2.line(img, (bottom_right, height - 1), (top_right, vanishing_y), line_color, thickness, cv2.LINE_AA)
+        
+        return img
 
+
+    def __draw_curved_perspective_lanes__(self,
+                                          img,
+                                          curve_amount = 0.0,
+                                          vanishing_point_ratio = (VANISHING_POINT_X_RATIO, VANISHING_POINT_Y_RATIO),
+                                          lane_width_bottom=LANE_WIDTH_BOTTOM_RATIO,
+                                          lane_width_top=LANE_WIDTH_TOP_RATIO,
+                                          line_color=(0, 255, 0), thickness=1):
+        height, width = img.shape[:2]
+        
+        # Use the SAME vanishing point as the straight lanes
+        vanishing_x = int(width * vanishing_point_ratio[0])
+        vanishing_y = int(height * vanishing_point_ratio[1])
+        
+        # Use the SAME lane width parameters as the straight lanes
+        bottom_center = width // 2
+        bottom_half_width = int(width * lane_width_bottom / 2)
+        bottom_left = bottom_center - bottom_half_width
+        bottom_right = bottom_center + bottom_half_width
+        
+        top_half_width = int(width * lane_width_top / 2)
+        top_left = vanishing_x - top_half_width
+        top_right = vanishing_x + top_half_width
+        
+        # Generate curved points that maintain perspective
+        num_points = 100
+        left_points = []
+        right_points = []
+        
+        for i in range(num_points + 1):
+            t = i / num_points  # parameter from 0 (bottom) to 1 (top)
+            
+            # Linear interpolation for y coordinate (same as straight lines)
+            y = int(height - 1 + t * (vanishing_y - (height - 1)))
+            
+            # Linear interpolation for x coordinates (this gives the straight perspective lines)
+            left_x_straight = bottom_left + t * (top_left - bottom_left)
+            right_x_straight = bottom_right + t * (top_right - bottom_right)
+            
+            # Apply curve offset that gets stronger as we move up
+            # The curve should be subtle at the bottom and more pronounced toward the vanishing point
+            curve_strength = abs(curve_amount) * width * 0.1 * (t ** 1.5)  # Exponential growth
+            
+            # Apply curve in the same direction for both lines
+            if curve_amount > 0:  # Right turn
+                curve_offset = curve_strength
+            elif curve_amount < 0:  # Left turn
+                curve_offset = -curve_strength
+            else:  # Straight
+                curve_offset = 0
+            
+            # BOTH lines curve in the SAME direction while maintaining perspective
+            left_x_curved = left_x_straight + curve_offset
+            right_x_curved = right_x_straight + curve_offset
+            
+            left_points.append((int(left_x_curved), y))
+            right_points.append((int(right_x_curved), y))
+        
+        # Draw the curved lanes
+        cv2.polylines(img,
+                      [np.array(left_points, dtype=np.int32)],
+                      isClosed=False,
+                      color=line_color,
+                      thickness=thickness,
+                      lineType=cv2.LINE_AA)
+        cv2.polylines(img,
+                      [np.array(right_points, dtype=np.int32)],
+                      isClosed=False,
+                      color=line_color,
+                      thickness=thickness,
+                      lineType=cv2.LINE_AA)
+        
+        return img
+
+
+    # Creates a complete driving scene with both straight and curved lane perspectives
+    def __create_driving_scene__(self, img, curved_lane_color = COLOR_MAGENTA, curve_amount = 0.0):
+        # ----------------
+        # Draw the horizon
+        # ----------------
+        img = self.__draw_horizontal_line__(img,
+                                            y_ratio_from_top=Kinect.VANISHING_POINT_Y_RATIO,
+                                            line_type='dashed_dense',
+                                            thickness=1,
+                                            color=Kinect.COLOR_GRAY)
+        
+        # ----------------------
+        # Draw the straight lane
+        # ----------------------
+        img = self.__draw_perspective_lane__(img,
+                                             vanishing_point_ratio=(Kinect.VANISHING_POINT_X_RATIO, Kinect.VANISHING_POINT_Y_RATIO), 
+                                             lane_width_bottom=Kinect.LANE_WIDTH_BOTTOM_RATIO, 
+                                             lane_width_top=Kinect.LANE_WIDTH_TOP_RATIO,
+                                             line_color=Kinect.COLOR_BLUE,
+                                             thickness=1)
+        
+        # ----------------------------
+        # Draw the curved/turning lane
+        # ----------------------------
+        img = self.__draw_curved_perspective_lanes__(img,
+                                                     curve_amount=curve_amount,
+                                                     vanishing_point_ratio=(Kinect.VANISHING_POINT_X_RATIO, Kinect.VANISHING_POINT_Y_RATIO),
+                                                     lane_width_bottom=Kinect.LANE_WIDTH_BOTTOM_RATIO, 
+                                                     lane_width_top=Kinect.LANE_WIDTH_TOP_RATIO,
+                                                     line_color=curved_lane_color,
+                                                     thickness=1)
+        
+        return img
+
+
+    def __get_driving_scene_frame__(self, curved_lane_color = COLOR_MAGENTA, curve_amount: float = 0.0):
+        cv2_drive_frame = np.zeros((480, 640, 3), dtype=np.uint8)
+
+        cv2_drive_frame = self.__create_driving_scene__(img=cv2_drive_frame, curved_lane_color=curved_lane_color, curve_amount=curve_amount)
+        
+        # Put a descriptive text into the frame
+        direction = "LEFT" if curve_amount < 0 else "RIGHT" if curve_amount > 0 else "STRAIGHT"
+        msg = f"Steering: {direction} ({curve_amount:.2f})"
+
+        cv2.putText(cv2_drive_frame,
+                    msg,
+                    org=(5, 25),
+                    fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                    color=Kinect.COLOR_WHITE,
+                    fontScale=0.65,
+                    thickness=1,
+                    lineType=1)
+        
         return cv2_drive_frame
     
 
-    def __get_cv2_frame__(self):
+    def __get_cv2_frame__(self, curve_amount: float = 0.0):
         cv2_frame = None
 
         # -----------------------
@@ -456,7 +650,7 @@ class Kinect:
         # -----------------------------
         cv2_frame_h2 = None
         cv2_pcd_frame = self.__get_pcd_frame__()
-        cv2_drive_frame = self.__get_driving_scene_frame__()
+        cv2_drive_frame = self.__get_driving_scene_frame__(curve_amount=curve_amount)
 
         if cv2_pcd_frame is not None and cv2_drive_frame is not None:
             cv2_frame_h2 = np.hstack((cv2_pcd_frame, cv2_drive_frame))
@@ -482,8 +676,10 @@ class Kinect:
 
 
     def run(self, x_pos: int = -1, y_pos: int = -1):
+        curve_amount = 0.0
+
         while True:
-            cv2_frame = self.__get_cv2_frame__()
+            cv2_frame = self.__get_cv2_frame__(curve_amount=curve_amount)
 
             # Abort if there's no frame
             if cv2_frame is None:
@@ -495,7 +691,7 @@ class Kinect:
             else:
                 self.__show_centered__(cv2_frame)
 
-            key_pressed = cv2.waitKey(150) # Wait for a key event for 250ms
+            key_pressed = cv2.waitKey(Kinect.KEY_WAIT_DELAY_MS) # Wait for a key event for 250ms
 
             if key_pressed == ord('1'):
                 print("=> Sensor range: optimal")
@@ -516,6 +712,18 @@ class Kinect:
                 print("=> Sensor range: operational")
                 point_cloud_data = sensor.get_point_cloud_data(Kinect.SENSOR_RANGE.OPERATIONAL)
                 sensor.analyze_point_cloud_data(point_cloud_data, in_xyz_space=False)
+
+            elif key_pressed == 81 or key_pressed == ord('a'):  # Left arrow or 'a'
+                # print(f"=> Turning LEFT (amount: {curve_amount:.2f})")
+                curve_amount = max(curve_amount - Kinect.CURVE_STEP, Kinect.MAX_CURVE_DEGREE_LEFT)
+            
+            elif key_pressed == 83 or key_pressed == ord('d'):  # Right arrow or 'd'
+                # print(f"=> Turning RIGHT (amount: {curve_amount:.2f})")
+                curve_amount = min(curve_amount + Kinect.CURVE_STEP, Kinect.MAX_CURVE_DEGREE_RIGHT)
+            
+            elif key_pressed == ord('r'):  # Reset to a straight driving lane
+                # print(f"=> Vehicle facing straight.")
+                curve_amount = 0.0
             
             elif key_pressed == ord('0'):
                 os.system('clear')
