@@ -256,15 +256,15 @@ class Kinect:
         closest = (None, None, None) # A point closest to the Kinect
         furthest = (None, None, None) # A point furthest from the Kinect
 
+        distances = np.linalg.norm(points, axis=1) # Euclidian distances in XYZ space
+
+        # Find the indices of the closest and furthest point
+        idx_min = np.argmin(distances)
+        idx_max = np.argmax(distances)
+        
         if len(points) > 0:        
-            if in_xyz_space:
-                distances = np.linalg.norm(points, axis=1) # Euclidian distances in XYZ space
-            else:
+            if not in_xyz_space:
                 distances = np.linalg.norm(points[:, :2], axis=1) # Euclidian distances in a XY-plane only
-            
-            # Find the indices of the closest and furthest point
-            idx_min = np.argmin(distances)
-            idx_max = np.argmax(distances)
             
             # Get the actual points and their pixel coordinates
             point_min = points[idx_min]
