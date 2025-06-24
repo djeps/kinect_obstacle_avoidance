@@ -9,6 +9,7 @@ import math
 # from open3d import geometry, utility, visualization
 from typing import NamedTuple
 from suppressor import SuppressNativePrints
+from math import sqrt
 
 
 DRIVING_LANE_CONTOUR = None
@@ -34,7 +35,7 @@ class Kinect:
     DEFAULT_SCREEN_HEIGHT = 976
     DEFAULT_WINDOW_WIDTH = 640
     DEFAULT_WINDOW_HEIGHT = 480
-    KEY_WAIT_DELAY_MS = 150
+    KEY_WAIT_DELAY_MS = 5
 
     # ----------------
     # Colors and modes
@@ -74,6 +75,7 @@ class Kinect:
     MAX_OPTIMAL_SENSOR_DEPTH = 1600
     MIN_OPERATIONAL_SENSOR_DEPTH = 500
     MAX_OPERATIONAL_SENSOR_DEPTH = 900
+    DISTANCE_THRESHOLD = 800
 
     # ----------------
     # Lane positioning
@@ -374,7 +376,7 @@ class Kinect:
 
 
     def _get_depth_data(self):
-        raw_depth_data = None
+        # raw_depth_data = None
 
         try:
             with SuppressNativePrints():
@@ -620,14 +622,49 @@ class Kinect:
         return img
 
 
-    def _get_driving_scene_frame(self, curved_lane_color = COLOR_MAGENTA, curve_amount: float = 0.0):
+    def _get_distance_from_sensor(self, point):
+        if point is None:
+            return -1
+        
+        x = point[0]
+        y = point[1]
+        z = point[2]
+
+        if x is None or y is None or z is None:
+            return -2
+        
+        # As the x, y and z point coordinates are already converted in mm
+        # We don't need to apply a factor of 1000
+        distance = sqrt(x**2 + y**2 + z**2) 
+        gnd_distance = sqrt(x**2 + y**2)
+
+        return (distance, gnd_distance)
+    
+
+    def _get_driving_scene_frame(self, raw_depth_data, curved_lane_color = COLOR_MAGENTA, curve_amount: float = 0.0):
         cv2_drive_frame = np.zeros((480, 640, 3), dtype=np.uint8)
 
         cv2_drive_frame = self._create_driving_scene(img=cv2_drive_frame, curved_lane_color=curved_lane_color, curve_amount=curve_amount)
         
+        points, pixels, colors = self.get_point_cloud_data(raw_depth_data, sensor_range=Kinect.SENSOR_OPERATIONAL_RANGE, pixel_stepping=4)
+
+        collision = ''
+        i = 0
+
+        for pixel in pixels:
+            if self._pixel_in_lane(pixel):
+                # Get the distance from the sensor to the point inside the 'ground'/XY place
+                # If this distance (in mm!) is less than the given threshold
+                # display the original pixel (from the RGB view)
+                _, gnd_distance = self._get_distance_from_sensor(points[i])
+                if gnd_distance < Kinect.DISTANCE_THRESHOLD:
+                    cv2.circle(cv2_drive_frame, pixel, 1, Kinect.COLOR_YELLOW, thickness=-1, lineType=cv2.LINE_AA)
+                    collision = " (possible collision)"
+            i += 1
+
         # Put a descriptive text into the frame
         direction = "left" if curve_amount < 0 else "RIGHT" if curve_amount > 0 else "straight"
-        msg = f"Steering: {direction} ({curve_amount:.2f})"
+        msg = f"Steering{collision}: {direction} ({curve_amount:.2f})"
 
         cv2.putText(cv2_drive_frame,
                     msg,
@@ -641,7 +678,7 @@ class Kinect:
         return cv2_drive_frame
     
 
-    def _get_cv2_frame(self, curve_amount: float = 0.0):
+    def _get_cv2_frame(self, raw_depth_data, curve_amount: float = 0.0):
         cv2_frame = None
 
         # -----------------------
@@ -659,7 +696,7 @@ class Kinect:
         # -----------------------------
         cv2_frame_h2 = None
         cv2_pcd_frame = self._get_pcd_frame()
-        cv2_drive_frame = self._get_driving_scene_frame(curve_amount=curve_amount)
+        cv2_drive_frame = self._get_driving_scene_frame(raw_depth_data, curve_amount=curve_amount)
 
         if cv2_pcd_frame is not None and cv2_drive_frame is not None:
             cv2_frame_h2 = np.hstack((cv2_pcd_frame, cv2_drive_frame))
@@ -673,19 +710,19 @@ class Kinect:
         return cv2_frame
     
 
-    def _point_not_in_lane(self, pixel):
+    def _pixel_in_lane(self, pixel):
         global DRIVING_LANE_CONTOUR
         
         if DRIVING_LANE_CONTOUR is None:
             return True  # No lane has been drawn yet
 
         # Convert point to (x, y) tuple and check against contour
-        result = cv2.pointPolygonTest(DRIVING_LANE_CONTOUR, pixel, measureDist=False)
+        result = cv2.pointPolygonTest(DRIVING_LANE_CONTOUR, (int(pixel[0]), int(pixel[1])), measureDist=False)
         
         # Returns
         # True: if the pixel is outside of the driving lane contour
         # False: if inside or on the edge of the driving lane contour
-        return result < 0 
+        return result > 0 
 
 
     def _show_at(self, cv2_frame, x_pos: int, y_pos: int):
@@ -703,14 +740,18 @@ class Kinect:
         curve_amount = 0.0
 
         while True:
-            cv2_frame = self._get_cv2_frame(curve_amount=curve_amount)
+            raw_depth_data = sensor._get_depth_data()
+
+            if raw_depth_data is None:
+                print("=> Error! Failed to get the raw depth data from the sensor!")
+                break
+
+            cv2_frame = self._get_cv2_frame(raw_depth_data, curve_amount=curve_amount)
 
             # Abort if there's no frame
             if cv2_frame is None:
                 print("=> Error! Nothing to display (no frames are available).")
                 break
-
-            raw_depth_data = sensor._get_depth_data()
 
             if (x_pos >= 0) and (y_pos >= 0):
                 self._show_at(cv2_frame, x_pos, y_pos)
