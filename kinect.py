@@ -6,10 +6,12 @@ import pyautogui
 import numpy as np
 import math
 
-from open3d import geometry, utility, visualization
+# from open3d import geometry, utility, visualization
 from typing import NamedTuple
 from suppressor import SuppressNativePrints
 
+
+DRIVING_LANE_CONTOUR = None
 
 class DisplayMode(NamedTuple):
     RGB: int
@@ -199,8 +201,9 @@ class Kinect:
 
     # Returns an extended point cloud data
     # A tuple representing 0-the actual point cloud and 1-color mappings for each point in the cloud
-    def _get_point_cloud_ext(self, sensor_range: int = SENSOR_RANGE.FULL, pixel_stepping: int = 4):
-        raw_depth_data = self._get_depth_data()
+    def _get_point_cloud_ext(self, raw_depth_data, sensor_range: int = SENSOR_RANGE.FULL, pixel_stepping: int = 4):
+        if raw_depth_data is None:
+            return (None, None, None)
 
         points = None
         pixels = None
@@ -251,19 +254,19 @@ class Kinect:
 
 
     # Returns point cloud data only
-    def get_point_cloud(self, sensor_range: int = 1, pixel_stepping: int = 4):
-        return self._get_point_cloud_ext(sensor_range, pixel_stepping)[0]
+    def get_point_cloud_points(self, raw_depth_data, sensor_range: int = 1, pixel_stepping: int = 4):
+        return self._get_point_cloud_ext(raw_depth_data, sensor_range, pixel_stepping)[0]
 
 
     # Returns point cloud data along with pixels representing each point in the cloud
-    def get_point_cloud_and_pixels(self, sensor_range: int = 1, pixel_stepping: int = 4):
-        point_cloud_data = self._get_point_cloud_ext(sensor_range, pixel_stepping)
+    def get_point_cloud_points_and_pixels(self, raw_depth_data, sensor_range: int = 1, pixel_stepping: int = 4):
+        point_cloud_data = self._get_point_cloud_ext(raw_depth_data, sensor_range, pixel_stepping)
         return (point_cloud_data[0], point_cloud_data[1])
 
 
     # A wrapper function that returns everything (points, pixels, colors)
-    def get_point_cloud_data(self, sensor_range: int = 1, pixel_stepping: int = 4):
-        return self._get_point_cloud_ext(sensor_range, pixel_stepping)
+    def get_point_cloud_data(self, raw_depth_data, sensor_range: int = 1, pixel_stepping: int = 4):
+        return self._get_point_cloud_ext(raw_depth_data, sensor_range, pixel_stepping)
 
 
     def _get_min_max_points(self, points, pixels, in_xyz_space: bool = True):
@@ -271,7 +274,7 @@ class Kinect:
         # When:
         #   in_xyz_space==True => 'distances' represent true Euclidian distances in 3D (XYZ space)
         # If we were to project these onto a 'ground plane' i.e. a plane in which
-        # the Kinect is positioned into (a plane parallel to the ground)
+        # the Kinect is positioned into (a plane parallel to the ground) (XY plane)
         #   in_xyz_space==False => 'distances' represent 'ground plane' distances (XY-plane only!)
          
         closest = (None, None, None) # A point closest to the Kinect
@@ -421,7 +424,7 @@ class Kinect:
         grid_x_flat = grid_x.ravel()
 
         raw_depth = self._get_depth_data()
-        
+
         sampled_depth = raw_depth[grid_y, grid_x].ravel()
         mask = (sampled_depth >= Kinect.MIN_OPERATIONAL_SENSOR_DEPTH) & (sampled_depth <= Kinect.MAX_OPERATIONAL_SENSOR_DEPTH)
 
@@ -509,6 +512,8 @@ class Kinect:
                                           lane_width_bottom=LANE_WIDTH_BOTTOM_RATIO,
                                           lane_width_top=LANE_WIDTH_TOP_RATIO,
                                           line_color=(0, 255, 0), thickness=1):
+        global DRIVING_LANE_CONTOUR
+        
         height, width = img.shape[:2]
         
         # Use the SAME vanishing point as the straight lanes
@@ -573,6 +578,10 @@ class Kinect:
                       thickness=thickness,
                       lineType=cv2.LINE_AA)
         
+         # Create closed contour (left points + reversed right points)
+        lane_contour = np.vstack([left_points, right_points[::-1]])
+        DRIVING_LANE_CONTOUR = lane_contour.astype(np.int32)
+
         return img
 
 
@@ -664,6 +673,21 @@ class Kinect:
         return cv2_frame
     
 
+    def _point_not_in_lane(self, pixel):
+        global DRIVING_LANE_CONTOUR
+        
+        if DRIVING_LANE_CONTOUR is None:
+            return True  # No lane has been drawn yet
+
+        # Convert point to (x, y) tuple and check against contour
+        result = cv2.pointPolygonTest(DRIVING_LANE_CONTOUR, pixel, measureDist=False)
+        
+        # Returns
+        # True: if the pixel is outside of the driving lane contour
+        # False: if inside or on the edge of the driving lane contour
+        return result < 0 
+
+
     def _show_at(self, cv2_frame, x_pos: int, y_pos: int):
         cv2.moveWindow(self._window_name, x_pos, y_pos)
         cv2.imshow(self._window_name, cv2_frame)
@@ -686,6 +710,8 @@ class Kinect:
                 print("=> Error! Nothing to display (no frames are available).")
                 break
 
+            raw_depth_data = sensor._get_depth_data()
+
             if (x_pos >= 0) and (y_pos >= 0):
                 self._show_at(cv2_frame, x_pos, y_pos)
             else:
@@ -695,22 +721,22 @@ class Kinect:
 
             if key_pressed == ord('1'):
                 print("=> Sensor range: optimal")
-                point_cloud_data = sensor.get_point_cloud_data(Kinect.SENSOR_RANGE.OPTIMAL)
+                point_cloud_data = sensor.get_point_cloud_data(raw_depth_data, Kinect.SENSOR_RANGE.OPTIMAL)
                 sensor.analyze_point_cloud_data(point_cloud_data, in_xyz_space=True)
             
             elif key_pressed == ord ('2'):
                 print("=> Sensor range: operational")
-                point_cloud_data = sensor.get_point_cloud_data(Kinect.SENSOR_RANGE.OPERATIONAL)
+                point_cloud_data = sensor.get_point_cloud_data(raw_depth_data, Kinect.SENSOR_RANGE.OPERATIONAL)
                 sensor.analyze_point_cloud_data(point_cloud_data, in_xyz_space=True)
             
             elif key_pressed == ord('3'):
                 print("=> Sensor range: optimal")
-                point_cloud_data = sensor.get_point_cloud_data(Kinect.SENSOR_RANGE.OPTIMAL)
+                point_cloud_data = sensor.get_point_cloud_data(raw_depth_data, Kinect.SENSOR_RANGE.OPTIMAL)
                 sensor.analyze_point_cloud_data(point_cloud_data, in_xyz_space=False)
             
             elif key_pressed == ord('4'):
                 print("=> Sensor range: operational")
-                point_cloud_data = sensor.get_point_cloud_data(Kinect.SENSOR_RANGE.OPERATIONAL)
+                point_cloud_data = sensor.get_point_cloud_data(raw_depth_data, Kinect.SENSOR_RANGE.OPERATIONAL)
                 sensor.analyze_point_cloud_data(point_cloud_data, in_xyz_space=False)
 
             elif key_pressed == 81 or key_pressed == ord('a'):  # Left arrow or 'a'
