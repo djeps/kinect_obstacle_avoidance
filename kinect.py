@@ -96,36 +96,36 @@ class Kinect:
         # --------------------------------
         # Setting OpenCV window properties
         # --------------------------------
-        self.__window_name__ = window_name
-        self.__window_width__ = Kinect.DEFAULT_WINDOW_WIDTH * 2
-        self.__window_height__ = Kinect.DEFAULT_WINDOW_HEIGHT * 2
+        self._window_name = window_name
+        self._window_width = Kinect.DEFAULT_WINDOW_WIDTH * 2
+        self._window_height = Kinect.DEFAULT_WINDOW_HEIGHT * 2
 
-        cv2.namedWindow(self.__window_name__, cv2.WINDOW_NORMAL)
-        cv2.resizeWindow(self.__window_name__, self.__window_width__, self.__window_height__)
+        cv2.namedWindow(self._window_name, cv2.WINDOW_NORMAL)
+        cv2.resizeWindow(self._window_name, self._window_width, self._window_height)
 
         # ---------------------------------
         # Determining the screen resolution
         # ---------------------------------
         try:
-            self.__screen_width__, self.__screen_height__ = pyautogui.size()
+            self._screen_width, self._screen_height = pyautogui.size()
         except Exception as e:
             print(f"=> An unexpected error occurred when determining the screen resolution: {e}")
             
-            self.__screen_width__ = Kinect.DEFAULT_SCREEN_WIDTH
-            self.__screen_height__ = Kinect.DEFAULT_SCREEN_HEIGHT
+            self._screen_width = Kinect.DEFAULT_SCREEN_WIDTH
+            self._screen_height = Kinect.DEFAULT_SCREEN_HEIGHT
             
-            print(f"=> Going with default values for screen width = {self.__screen_width} and height = {self.__screen_height__}.")
+            print(f"=> Going with default values for screen width = {self.__screen_width} and height = {self._screen_height}.")
 
         # --------------------------------------------------------------
         # Create the gamma color table to match 'freenect-glview' output
         # --------------------------------------------------------------
         # Gamma correction table
-        self.__color_gamma__ = self.__create_gamma__()
+        self._color_gamma = self._create_gamma()
 
 
     # Creates a lookup table and maps raw Kinect depth values (0–2047) to an RGB color
     # to produce a color gradient similar to what the 'freenect-glview' tool produces
-    def __create_gamma__(self):
+    def _create_gamma(self):
         
         # Create a matrix of 3x2048 to represent all raw data points from each color in RGB
         color_gamma = np.zeros((Kinect.SENSOR_RESOLUTION, 3), dtype=np.uint8)
@@ -163,7 +163,7 @@ class Kinect:
         return color_gamma
 
 
-    def __depth_to_m__(self, depth):
+    def _depth_to_m(self, depth):
         # Convert depth from raw units to meters!
         # Derived 'depth formula' for the Kinect v1
         depth_m = 1.0 / (depth * -0.0030711016 + 3.3309495161) # Depth in 'm'
@@ -171,11 +171,11 @@ class Kinect:
 
 
     # Convert raw depth data to physical data
-    def __depth_to_physical__(self, x, y, depth):
+    def _depth_to_physical(self, x, y, depth):
         if depth == 0:
             return None, None, None
                 
-        depth_m = self.__depth_to_m__(depth)
+        depth_m = self._depth_to_m(depth)
         
         # Convert to world coordinates in millimeters (mm)
         phys_x = ((x - Kinect.OPTICAL_CENTER_X) * depth_m / Kinect.FOCAL_LENGTH_X) * 1000 # Convert to 'mm'
@@ -185,22 +185,22 @@ class Kinect:
         return phys_x, phys_y, phys_z # In 'mm'
 
 
-    def __depth_array_to_physical__(self, depth):
+    def _depth_array_to_physical(self, depth):
         if depth is None:
             return None
         
         if len(depth) == 0:
             return None
 
-        depth_mm = 1000 * self.__depth_to_m__(depth)
+        depth_mm = 1000 * self._depth_to_m(depth)
         
         return depth_mm
 
 
     # Returns an extended point cloud data
     # A tuple representing 0-the actual point cloud and 1-color mappings for each point in the cloud
-    def __get_point_cloud_ext__(self, sensor_range: int = SENSOR_RANGE.FULL, pixel_stepping: int = 4):
-        raw_depth_data = self.__get_depth_data__()
+    def _get_point_cloud_ext(self, sensor_range: int = SENSOR_RANGE.FULL, pixel_stepping: int = 4):
+        raw_depth_data = self._get_depth_data()
 
         points = None
         pixels = None
@@ -231,7 +231,7 @@ class Kinect:
                     
                     # Otherwise...
                     # Convert to physical coordinates
-                    world_x, world_y, world_z = self.__depth_to_physical__(x, y, depth_value)
+                    world_x, world_y, world_z = self._depth_to_physical(x, y, depth_value)
                     
                     if world_x is not None:
                         points.append([world_x, world_y, world_z]) # A point in physical space
@@ -252,21 +252,21 @@ class Kinect:
 
     # Returns point cloud data only
     def get_point_cloud(self, sensor_range: int = 1, pixel_stepping: int = 4):
-        return self.__get_point_cloud_ext__(sensor_range, pixel_stepping)[0]
+        return self._get_point_cloud_ext(sensor_range, pixel_stepping)[0]
 
 
     # Returns point cloud data along with pixels representing each point in the cloud
     def get_point_cloud_and_pixels(self, sensor_range: int = 1, pixel_stepping: int = 4):
-        point_cloud_data = self.__get_point_cloud_ext__(sensor_range, pixel_stepping)
+        point_cloud_data = self._get_point_cloud_ext(sensor_range, pixel_stepping)
         return (point_cloud_data[0], point_cloud_data[1])
 
 
     # A wrapper function that returns everything (points, pixels, colors)
     def get_point_cloud_data(self, sensor_range: int = 1, pixel_stepping: int = 4):
-        return self.__get_point_cloud_ext__(sensor_range, pixel_stepping)
+        return self._get_point_cloud_ext(sensor_range, pixel_stepping)
 
 
-    def __get_min_max_points__(self, points, pixels, in_xyz_space: bool = True):
+    def _get_min_max_points(self, points, pixels, in_xyz_space: bool = True):
         # The Kinect's origin is at (0, 0, 0)
         # When:
         #   in_xyz_space==True => 'distances' represent true Euclidian distances in 3D (XYZ space)
@@ -313,7 +313,7 @@ class Kinect:
         print(f"=> Points = {len(points)}; Space = {space}")
         
         # Find closest and furthest points
-        closest, furthest = self.__get_min_max_points__(points, pixels, in_xyz_space=in_xyz_space)
+        closest, furthest = self._get_min_max_points(points, pixels, in_xyz_space=in_xyz_space)
         
         closest_point, closest_pixel, closest_dist = closest
         furthest_point, furthest_pixel, furthest_dist = furthest
@@ -336,7 +336,7 @@ class Kinect:
             print(f"=> Range = {furthest_dist - closest_dist:.1f}mm; Ratio = x {furthest_dist / closest_dist:.2f}")
 
 
-    def __get_rgb_data__(self):
+    def _get_rgb_data(self):
         rgb_data = None
 
         try:
@@ -348,10 +348,10 @@ class Kinect:
         return rgb_data
     
 
-    def __get_rgb_frame__(self):
+    def _get_rgb_frame(self):
         cv2_rgb_frame = None
 
-        rgb_frame = self.__get_rgb_data__()
+        rgb_frame = self._get_rgb_data()
 
         if rgb_frame is not None:
             # Convert from RGB to BGR for OpenCV
@@ -370,7 +370,7 @@ class Kinect:
         return cv2_rgb_frame
 
 
-    def __get_depth_data__(self):
+    def _get_depth_data(self):
         raw_depth_data = None
 
         try:
@@ -382,10 +382,10 @@ class Kinect:
         return raw_depth_data
 
 
-    def __get_depth_frame__(self):
+    def _get_depth_frame(self):
         cv2_depth_frame = None
 
-        depth_frame_raw = self.__get_depth_data__()
+        depth_frame_raw = self._get_depth_data()
 
         if depth_frame_raw is not None:
             # Clip to a valid range
@@ -393,7 +393,7 @@ class Kinect:
             depth_frame_clipped = np.clip(depth_frame_raw, Kinect.MIN_VISIBLE_SENSOR_DEPTH, Kinect.MAX_VISIBLE_SENSOR_DEPTH)
             
             # Apply gamma correction to depth data
-            depth_frame_color = self.__color_gamma__[depth_frame_clipped]
+            depth_frame_color = self._color_gamma[depth_frame_clipped]
 
             # Convert from RGB to BGR for OpenCV
             cv2_depth_frame = cv2.cvtColor(depth_frame_color, cv2.COLOR_RGB2BGR)
@@ -412,7 +412,7 @@ class Kinect:
     
 
     # Get point cloud rendered frame
-    def __get_pcd_frame__(self, pixel_stepping: int = 4):
+    def _get_pcd_frame(self, pixel_stepping: int = 4):
         cv2_pcd_frame = np.zeros((480, 640, 3), dtype=np.uint8)
 
         skip = pixel_stepping
@@ -420,13 +420,13 @@ class Kinect:
         grid_y_flat = grid_y.ravel()
         grid_x_flat = grid_x.ravel()
 
-        raw_depth = self.__get_depth_data__()
+        raw_depth = self._get_depth_data()
         
         sampled_depth = raw_depth[grid_y, grid_x].ravel()
         mask = (sampled_depth >= Kinect.MIN_OPERATIONAL_SENSOR_DEPTH) & (sampled_depth <= Kinect.MAX_OPERATIONAL_SENSOR_DEPTH)
 
         if np.any(mask):
-            phys_z = self.__depth_array_to_physical__(sampled_depth[mask])
+            phys_z = self._depth_array_to_physical(sampled_depth[mask])
             valid_x = grid_x_flat[mask]
             valid_y = grid_y_flat[mask]
 
@@ -450,7 +450,7 @@ class Kinect:
         return cv2_pcd_frame
 
 
-    def __draw_horizontal_line__(self, img, y_ratio_from_top, line_type = 'solid', thickness = 1, color = COLOR_WHITE):
+    def _draw_horizontal_line(self, img, y_ratio_from_top, line_type = 'solid', thickness = 1, color = COLOR_WHITE):
         height, width = img.shape[:2]
         y_from_bottom = int(height * (1 - y_ratio_from_top))
         y = height - y_from_bottom
@@ -477,7 +477,7 @@ class Kinect:
         return img
     
 
-    def __draw_perspective_lane__(self,
+    def _draw_perspective_lane(self,
                                   img,
                                   vanishing_point_ratio = (VANISHING_POINT_X_RATIO, VANISHING_POINT_Y_RATIO),
                                   lane_width_bottom = LANE_WIDTH_BOTTOM_RATIO,
@@ -502,7 +502,7 @@ class Kinect:
         return img
 
 
-    def __draw_curved_perspective_lanes__(self,
+    def _draw_curved_perspective_lanes(self,
                                           img,
                                           curve_amount = 0.0,
                                           vanishing_point_ratio = (VANISHING_POINT_X_RATIO, VANISHING_POINT_Y_RATIO),
@@ -577,11 +577,11 @@ class Kinect:
 
 
     # Creates a complete driving scene with both straight and curved lane perspectives
-    def __create_driving_scene__(self, img, curved_lane_color = COLOR_MAGENTA, curve_amount = 0.0):
+    def _create_driving_scene(self, img, curved_lane_color = COLOR_MAGENTA, curve_amount = 0.0):
         # ----------------
         # Draw the horizon
         # ----------------
-        img = self.__draw_horizontal_line__(img,
+        img = self._draw_horizontal_line(img,
                                             y_ratio_from_top=Kinect.VANISHING_POINT_Y_RATIO,
                                             line_type='dashed_dense',
                                             thickness=1,
@@ -590,7 +590,7 @@ class Kinect:
         # ----------------------
         # Draw the straight lane
         # ----------------------
-        img = self.__draw_perspective_lane__(img,
+        img = self._draw_perspective_lane(img,
                                              vanishing_point_ratio=(Kinect.VANISHING_POINT_X_RATIO, Kinect.VANISHING_POINT_Y_RATIO), 
                                              lane_width_bottom=Kinect.LANE_WIDTH_BOTTOM_RATIO, 
                                              lane_width_top=Kinect.LANE_WIDTH_TOP_RATIO,
@@ -600,7 +600,7 @@ class Kinect:
         # ----------------------------
         # Draw the curved/turning lane
         # ----------------------------
-        img = self.__draw_curved_perspective_lanes__(img,
+        img = self._draw_curved_perspective_lanes(img,
                                                      curve_amount=curve_amount,
                                                      vanishing_point_ratio=(Kinect.VANISHING_POINT_X_RATIO, Kinect.VANISHING_POINT_Y_RATIO),
                                                      lane_width_bottom=Kinect.LANE_WIDTH_BOTTOM_RATIO, 
@@ -611,13 +611,13 @@ class Kinect:
         return img
 
 
-    def __get_driving_scene_frame__(self, curved_lane_color = COLOR_MAGENTA, curve_amount: float = 0.0):
+    def _get_driving_scene_frame(self, curved_lane_color = COLOR_MAGENTA, curve_amount: float = 0.0):
         cv2_drive_frame = np.zeros((480, 640, 3), dtype=np.uint8)
 
-        cv2_drive_frame = self.__create_driving_scene__(img=cv2_drive_frame, curved_lane_color=curved_lane_color, curve_amount=curve_amount)
+        cv2_drive_frame = self._create_driving_scene(img=cv2_drive_frame, curved_lane_color=curved_lane_color, curve_amount=curve_amount)
         
         # Put a descriptive text into the frame
-        direction = "LEFT" if curve_amount < 0 else "RIGHT" if curve_amount > 0 else "STRAIGHT"
+        direction = "left" if curve_amount < 0 else "RIGHT" if curve_amount > 0 else "straight"
         msg = f"Steering: {direction} ({curve_amount:.2f})"
 
         cv2.putText(cv2_drive_frame,
@@ -632,15 +632,15 @@ class Kinect:
         return cv2_drive_frame
     
 
-    def __get_cv2_frame__(self, curve_amount: float = 0.0):
+    def _get_cv2_frame(self, curve_amount: float = 0.0):
         cv2_frame = None
 
         # -----------------------
         # RGB and Depth color map
         # -----------------------
         cv2_frame_h1 = None
-        cv2_depth_frame = self.__get_depth_frame__()
-        cv2_rgb_frame = self.__get_rgb_frame__()
+        cv2_depth_frame = self._get_depth_frame()
+        cv2_rgb_frame = self._get_rgb_frame()
 
         if cv2_depth_frame is not None and cv2_rgb_frame is not None:
             cv2_frame_h1 = np.hstack((cv2_depth_frame, cv2_rgb_frame))
@@ -649,8 +649,8 @@ class Kinect:
         # Point cloud and driving scene
         # -----------------------------
         cv2_frame_h2 = None
-        cv2_pcd_frame = self.__get_pcd_frame__()
-        cv2_drive_frame = self.__get_driving_scene_frame__(curve_amount=curve_amount)
+        cv2_pcd_frame = self._get_pcd_frame()
+        cv2_drive_frame = self._get_driving_scene_frame(curve_amount=curve_amount)
 
         if cv2_pcd_frame is not None and cv2_drive_frame is not None:
             cv2_frame_h2 = np.hstack((cv2_pcd_frame, cv2_drive_frame))
@@ -664,22 +664,22 @@ class Kinect:
         return cv2_frame
     
 
-    def __show_at__(self, cv2_frame, x_pos: int, y_pos: int):
-        cv2.moveWindow(self.__window_name__, x_pos, y_pos)
-        cv2.imshow(self.__window_name__, cv2_frame)
+    def _show_at(self, cv2_frame, x_pos: int, y_pos: int):
+        cv2.moveWindow(self._window_name, x_pos, y_pos)
+        cv2.imshow(self._window_name, cv2_frame)
 
 
-    def __show_centered__(self, cv2_frame):
-        x_pos_center = (self.__screen_width__ - self.__window_width__) // 2
-        y_pos_center = (self.__screen_height__ - self.__window_height__) // 2
-        self.__show_at__(cv2_frame, x_pos_center, y_pos_center)
+    def _show_centered(self, cv2_frame):
+        x_pos_center = (self._screen_width - self._window_width) // 2
+        y_pos_center = (self._screen_height - self._window_height) // 2
+        self._show_at(cv2_frame, x_pos_center, y_pos_center)
 
 
     def run(self, x_pos: int = -1, y_pos: int = -1):
         curve_amount = 0.0
 
         while True:
-            cv2_frame = self.__get_cv2_frame__(curve_amount=curve_amount)
+            cv2_frame = self._get_cv2_frame(curve_amount=curve_amount)
 
             # Abort if there's no frame
             if cv2_frame is None:
@@ -687,9 +687,9 @@ class Kinect:
                 break
 
             if (x_pos >= 0) and (y_pos >= 0):
-                self.__show_at__(cv2_frame, x_pos, y_pos)
+                self._show_at(cv2_frame, x_pos, y_pos)
             else:
-                self.__show_centered__(cv2_frame)
+                self._show_centered(cv2_frame)
 
             key_pressed = cv2.waitKey(Kinect.KEY_WAIT_DELAY_MS) # Wait for a key event for 250ms
 
