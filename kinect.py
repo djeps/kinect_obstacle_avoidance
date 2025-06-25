@@ -6,6 +6,11 @@ import pyautogui
 import numpy as np
 import time
 
+# A pre-compiled or a 'cythonized' module with an optimized version of the
+# the _get_point_cloud_ext function.
+# The new function name is: get_point_cloud_ext
+import pointcloud 
+
 # from open3d import geometry, utility, visualization
 from typing import NamedTuple
 from suppressor import SuppressNativePrints
@@ -289,18 +294,21 @@ class Kinect:
 
     # Returns point cloud data only
     def get_point_cloud_points(self, raw_depth_data, sensor_range: int = 1, pixel_stepping: int = 4):
-        return self._get_point_cloud_ext(raw_depth_data, sensor_range, pixel_stepping)[0]
+        # return self._get_point_cloud_ext(raw_depth_data, sensor_range, pixel_stepping)[0]
+        return pointcloud.get_point_cloud_ext(raw_depth_data, sensor_range, pixel_stepping)[0]
 
 
     # Returns point cloud data along with pixels representing each point in the cloud
     def get_point_cloud_points_and_pixels(self, raw_depth_data, sensor_range: int = 1, pixel_stepping: int = 4):
-        point_cloud_data = self._get_point_cloud_ext(raw_depth_data, sensor_range, pixel_stepping)
+        # point_cloud_data = self._get_point_cloud_ext(raw_depth_data, sensor_range, pixel_stepping)
+        point_cloud_data = pointcloud.get_point_cloud_ext(raw_depth_data, sensor_range, pixel_stepping)
         return (point_cloud_data[0], point_cloud_data[1])
 
 
     # A wrapper function that returns everything (points, pixels, colors)
     def get_point_cloud_data(self, raw_depth_data, sensor_range: int = 1, pixel_stepping: int = 4):
-        return self._get_point_cloud_ext(raw_depth_data, sensor_range, pixel_stepping)
+        # return self._get_point_cloud_ext(raw_depth_data, sensor_range, pixel_stepping)
+        return pointcloud.get_point_cloud_ext(raw_depth_data, sensor_range, pixel_stepping)
 
 
     def _get_min_max_points(self, points, pixels, in_xyz_space: bool = True):
