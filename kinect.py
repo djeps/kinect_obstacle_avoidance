@@ -4,12 +4,14 @@ import freenect as kinect
 import cv2
 import pyautogui
 import numpy as np
-import math
+import time
 
 # from open3d import geometry, utility, visualization
 from typing import NamedTuple
 from suppressor import SuppressNativePrints
 from math import sqrt
+from threading import Thread, Event
+from collections import deque
 
 
 DRIVING_LANE_CONTOUR = None
@@ -35,7 +37,7 @@ class Kinect:
     DEFAULT_SCREEN_HEIGHT = 976
     DEFAULT_WINDOW_WIDTH = 640
     DEFAULT_WINDOW_HEIGHT = 480
-    KEY_WAIT_DELAY_MS = 5
+    KEY_WAIT_DELAY_MS = 1
 
     # ----------------
     # Colors and modes
@@ -89,6 +91,20 @@ class Kinect:
     CURVE_STEP = 0.05
 
 
+    def capture_thread(self):
+        """Continuously capture frames and update buffer"""
+        while not self._stop_event.is_set():
+            try:
+                with SuppressNativePrints():
+                    depth = kinect.sync_get_depth()[0]
+            except Exception as e:
+                print(f"=> An unexpected error occurred when returning a Kinect depth frame: {e}")
+
+
+            self._frame_buffer.append(depth)
+            time.sleep(0.001)  # 1ms to prevent thread from hogging CPU
+
+
     def __init__(self, window_name: str, display_mode: int = DISPLAY_MODE.RGB):
         if display_mode not in Kinect.DISPLAY_MODE:
             raise ValueError("Incorrect display mode! Allowed modes: RGB_ONLY, DEPTH_ONLY, RGB_AND_DEPTH.")
@@ -125,6 +141,22 @@ class Kinect:
         # --------------------------------------------------------------
         # Gamma correction table
         self._color_gamma = self._create_gamma()
+
+        # --------------------------------------------------------------
+        # Thread-safe buffer with max capacity of 1 frame
+        # This is hopefully to improve the performance of the program
+        # when frequently (with each frame refresh!) fetching depth data
+        # -------------------------------------------------------------- 
+        self._frame_buffer = deque(maxlen=1)
+        self._stop_event = Event()
+
+        # Start capture thread
+        self._thread = Thread(target=self.capture_thread, daemon=True)
+        self._thread.start()
+
+        # Wait for the first frame to arrive (safety mechanism)
+        while not self._frame_buffer:
+            time.sleep(0.01)
 
 
     # Creates a lookup table and maps raw Kinect depth values (0–2047) to an RGB color
@@ -376,14 +408,8 @@ class Kinect:
 
 
     def _get_depth_data(self):
-        # raw_depth_data = None
+        raw_depth_data = self._frame_buffer[0] if self._frame_buffer else None
 
-        try:
-            with SuppressNativePrints():
-                raw_depth_data = kinect.sync_get_depth()[0]
-        except Exception as e:
-            print(f"=> An unexpected error occurred when returning a Kinect depth frame: {e}")
-        
         return raw_depth_data
 
 
@@ -739,67 +765,73 @@ class Kinect:
     def run(self, x_pos: int = -1, y_pos: int = -1):
         curve_amount = 0.0
 
-        while True:
-            raw_depth_data = sensor._get_depth_data()
+        try:
+            while True:
+                raw_depth_data = sensor._get_depth_data()
 
-            if raw_depth_data is None:
-                print("=> Error! Failed to get the raw depth data from the sensor!")
-                break
+                if raw_depth_data is None:
+                    print("=> Error! Failed to get the raw depth data from the sensor!")
+                    break
 
-            cv2_frame = self._get_cv2_frame(raw_depth_data, curve_amount=curve_amount)
+                cv2_frame = self._get_cv2_frame(raw_depth_data, curve_amount=curve_amount)
 
-            # Abort if there's no frame
-            if cv2_frame is None:
-                print("=> Error! Nothing to display (no frames are available).")
-                break
+                # Abort if there's no frame
+                if cv2_frame is None:
+                    print("=> Error! Nothing to display (no frames are available).")
+                    break
 
-            if (x_pos >= 0) and (y_pos >= 0):
-                self._show_at(cv2_frame, x_pos, y_pos)
-            else:
-                self._show_centered(cv2_frame)
+                if (x_pos >= 0) and (y_pos >= 0):
+                    self._show_at(cv2_frame, x_pos, y_pos)
+                else:
+                    self._show_centered(cv2_frame)
 
-            key_pressed = cv2.waitKey(Kinect.KEY_WAIT_DELAY_MS) # Wait for a key event for 250ms
+                key_pressed = cv2.waitKey(Kinect.KEY_WAIT_DELAY_MS) # Wait for a key event for 250ms
 
-            if key_pressed == ord('1'):
-                print("=> Sensor range: optimal")
-                point_cloud_data = sensor.get_point_cloud_data(raw_depth_data, Kinect.SENSOR_RANGE.OPTIMAL)
-                sensor.analyze_point_cloud_data(point_cloud_data, in_xyz_space=True)
-            
-            elif key_pressed == ord ('2'):
-                print("=> Sensor range: operational")
-                point_cloud_data = sensor.get_point_cloud_data(raw_depth_data, Kinect.SENSOR_RANGE.OPERATIONAL)
-                sensor.analyze_point_cloud_data(point_cloud_data, in_xyz_space=True)
-            
-            elif key_pressed == ord('3'):
-                print("=> Sensor range: optimal")
-                point_cloud_data = sensor.get_point_cloud_data(raw_depth_data, Kinect.SENSOR_RANGE.OPTIMAL)
-                sensor.analyze_point_cloud_data(point_cloud_data, in_xyz_space=False)
-            
-            elif key_pressed == ord('4'):
-                print("=> Sensor range: operational")
-                point_cloud_data = sensor.get_point_cloud_data(raw_depth_data, Kinect.SENSOR_RANGE.OPERATIONAL)
-                sensor.analyze_point_cloud_data(point_cloud_data, in_xyz_space=False)
+                if key_pressed == ord('1'):
+                    print("=> Sensor range: optimal")
+                    point_cloud_data = sensor.get_point_cloud_data(raw_depth_data, Kinect.SENSOR_RANGE.OPTIMAL)
+                    sensor.analyze_point_cloud_data(point_cloud_data, in_xyz_space=True)
+                
+                elif key_pressed == ord ('2'):
+                    print("=> Sensor range: operational")
+                    point_cloud_data = sensor.get_point_cloud_data(raw_depth_data, Kinect.SENSOR_RANGE.OPERATIONAL)
+                    sensor.analyze_point_cloud_data(point_cloud_data, in_xyz_space=True)
+                
+                elif key_pressed == ord('3'):
+                    print("=> Sensor range: optimal")
+                    point_cloud_data = sensor.get_point_cloud_data(raw_depth_data, Kinect.SENSOR_RANGE.OPTIMAL)
+                    sensor.analyze_point_cloud_data(point_cloud_data, in_xyz_space=False)
+                
+                elif key_pressed == ord('4'):
+                    print("=> Sensor range: operational")
+                    point_cloud_data = sensor.get_point_cloud_data(raw_depth_data, Kinect.SENSOR_RANGE.OPERATIONAL)
+                    sensor.analyze_point_cloud_data(point_cloud_data, in_xyz_space=False)
 
-            elif key_pressed == 81 or key_pressed == ord('a'):  # Left arrow or 'a'
-                # print(f"=> Turning LEFT (amount: {curve_amount:.2f})")
-                curve_amount = max(curve_amount - Kinect.CURVE_STEP, Kinect.MAX_CURVE_DEGREE_LEFT)
-            
-            elif key_pressed == 83 or key_pressed == ord('d'):  # Right arrow or 'd'
-                # print(f"=> Turning RIGHT (amount: {curve_amount:.2f})")
-                curve_amount = min(curve_amount + Kinect.CURVE_STEP, Kinect.MAX_CURVE_DEGREE_RIGHT)
-            
-            elif key_pressed == ord('r'):  # Reset to a straight driving lane
-                # print(f"=> Vehicle facing straight.")
-                curve_amount = 0.0
-            
-            elif key_pressed == ord('0'):
-                os.system('clear')
-                print("=> Screen output cleared.")
-            
-            elif key_pressed == 27:
-                break # ESC was pressed
+                elif key_pressed == 81 or key_pressed == ord('a'):  # Left arrow or 'a'
+                    # print(f"=> Turning LEFT (amount: {curve_amount:.2f})")
+                    curve_amount = max(curve_amount - Kinect.CURVE_STEP, Kinect.MAX_CURVE_DEGREE_LEFT)
+                
+                elif key_pressed == 83 or key_pressed == ord('d'):  # Right arrow or 'd'
+                    # print(f"=> Turning RIGHT (amount: {curve_amount:.2f})")
+                    curve_amount = min(curve_amount + Kinect.CURVE_STEP, Kinect.MAX_CURVE_DEGREE_RIGHT)
+                
+                elif key_pressed == ord('r'):  # Reset to a straight driving lane
+                    # print(f"=> Vehicle facing straight.")
+                    curve_amount = 0.0
+                
+                elif key_pressed == ord('0'):
+                    os.system('clear')
+                    print("=> Screen output cleared.")
+                
+                elif key_pressed == 27:
+                    break # ESC was pressed
 
-        cv2.destroyAllWindows()
+            cv2.destroyAllWindows()
+        finally:
+            self._stop_event.set()
+            self._thread.join(timeout=1.0)
+            kinect.sync_stop()
+
 
 
 if __name__ == '__main__':
