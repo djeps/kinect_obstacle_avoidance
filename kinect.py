@@ -42,7 +42,7 @@ class Kinect:
     DEFAULT_SCREEN_HEIGHT = 976
     DEFAULT_WINDOW_WIDTH = 640
     DEFAULT_WINDOW_HEIGHT = 480
-    KEY_WAIT_DELAY_MS = 1
+    KEY_WAIT_DELAY_MS = 50
 
     # ----------------
     # Colors and modes
@@ -697,7 +697,7 @@ class Kinect:
             i += 1
 
         # Put a descriptive text into the frame
-        direction = "left" if curve_amount < 0 else "RIGHT" if curve_amount > 0 else "straight"
+        direction = "left" if curve_amount < 0 else "right" if curve_amount > 0 else "straight"
         msg = f"Steering{collision}: {direction} ({curve_amount:.2f})"
 
         cv2.putText(cv2_drive_frame,
@@ -771,6 +771,7 @@ class Kinect:
 
 
     def run(self, x_pos: int = -1, y_pos: int = -1):
+        raw_depth_data = None
         curve_amount = 0.0
 
         try:
@@ -795,51 +796,23 @@ class Kinect:
 
                 key_pressed = cv2.waitKey(Kinect.KEY_WAIT_DELAY_MS) # Wait for a key event for 250ms
 
-                if key_pressed == ord('1'):
-                    print("=> Sensor range: optimal")
-                    point_cloud_data = sensor.get_point_cloud_data(raw_depth_data, Kinect.SENSOR_RANGE.OPTIMAL)
-                    sensor.analyze_point_cloud_data(point_cloud_data, in_xyz_space=True)
-                
-                elif key_pressed == ord ('2'):
-                    print("=> Sensor range: operational")
-                    point_cloud_data = sensor.get_point_cloud_data(raw_depth_data, Kinect.SENSOR_RANGE.OPERATIONAL)
-                    sensor.analyze_point_cloud_data(point_cloud_data, in_xyz_space=True)
-                
-                elif key_pressed == ord('3'):
-                    print("=> Sensor range: optimal")
-                    point_cloud_data = sensor.get_point_cloud_data(raw_depth_data, Kinect.SENSOR_RANGE.OPTIMAL)
-                    sensor.analyze_point_cloud_data(point_cloud_data, in_xyz_space=False)
-                
-                elif key_pressed == ord('4'):
-                    print("=> Sensor range: operational")
-                    point_cloud_data = sensor.get_point_cloud_data(raw_depth_data, Kinect.SENSOR_RANGE.OPERATIONAL)
-                    sensor.analyze_point_cloud_data(point_cloud_data, in_xyz_space=False)
+                if key_pressed == 27:
+                    break # ESC was pressed
 
                 elif key_pressed == 81 or key_pressed == ord('a'):  # Left arrow or 'a'
-                    # print(f"=> Turning LEFT (amount: {curve_amount:.2f})")
                     curve_amount = max(curve_amount - Kinect.CURVE_STEP, Kinect.MAX_CURVE_DEGREE_LEFT)
                 
                 elif key_pressed == 83 or key_pressed == ord('d'):  # Right arrow or 'd'
-                    # print(f"=> Turning RIGHT (amount: {curve_amount:.2f})")
                     curve_amount = min(curve_amount + Kinect.CURVE_STEP, Kinect.MAX_CURVE_DEGREE_RIGHT)
                 
-                elif key_pressed == ord('r'):  # Reset to a straight driving lane
-                    # print(f"=> Vehicle facing straight.")
+                elif key_pressed == 82 or key_pressed == ord('s'):  # Up arrow or 's'
                     curve_amount = 0.0
-                
-                elif key_pressed == ord('0'):
-                    os.system('clear')
-                    print("=> Screen output cleared.")
-                
-                elif key_pressed == 27:
-                    break # ESC was pressed
 
             cv2.destroyAllWindows()
         finally:
             self._stop_event.set()
             self._thread.join(timeout=1.0)
             kinect.sync_stop()
-
 
 
 if __name__ == '__main__':

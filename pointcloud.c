@@ -2625,12 +2625,17 @@ static PyObject *__pyx_pf_10pointcloud_get_point_cloud_ext(CYTHON_UNUSED PyObjec
   Py_ssize_t __pyx_v_x;
   Py_ssize_t __pyx_v_idx;
   __pyx_t_5numpy_uint16_t __pyx_v_depth_value;
+  double __pyx_v_depth_m;
+  double __pyx_v_world_x;
+  double __pyx_v_world_y;
+  double __pyx_v_world_z;
+  double __pyx_v_normalized_depth;
   Py_ssize_t __pyx_v_max_points;
   double *__pyx_v_points_data;
   int *__pyx_v_pixels_data;
   unsigned char *__pyx_v_colors_data;
-  CYTHON_UNUSED double __pyx_v_depth_a;
-  CYTHON_UNUSED double __pyx_v_depth_b;
+  double __pyx_v_depth_a;
+  double __pyx_v_depth_b;
   int __pyx_v_skip_pixel;
   PyArrayObject *__pyx_v_points_arr = 0;
   PyArrayObject *__pyx_v_pixels_arr = 0;
@@ -2648,9 +2653,10 @@ static PyObject *__pyx_pf_10pointcloud_get_point_cloud_ext(CYTHON_UNUSED PyObjec
   int __pyx_t_8;
   Py_ssize_t __pyx_t_9;
   Py_ssize_t __pyx_t_10;
-  Py_ssize_t __pyx_t_11;
-  PyObject *(*__pyx_t_12)(PyObject *);
-  Py_ssize_t __pyx_t_13;
+  double __pyx_t_11;
+  Py_ssize_t __pyx_t_12;
+  PyObject *(*__pyx_t_13)(PyObject *);
+  Py_ssize_t __pyx_t_14;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
@@ -3356,7 +3362,7 @@ static PyObject *__pyx_pf_10pointcloud_get_point_cloud_ext(CYTHON_UNUSED PyObjec
  *             if skip_pixel:
  *                 continue             # <<<<<<<<<<<<<<
  * 
- *             # ... [coordinate conversion code] ...
+ *             # Convert to physical coordinates
  */
         goto __pyx_L14_continue;
 
@@ -3371,7 +3377,158 @@ static PyObject *__pyx_pf_10pointcloud_get_point_cloud_ext(CYTHON_UNUSED PyObjec
 
       /* "pointcloud.pyx":91
  * 
- *             # ... [coordinate conversion code] ...
+ *             # Convert to physical coordinates
+ *             depth_m = 1.0 / (depth_value * depth_a + depth_b)             # <<<<<<<<<<<<<<
+ * 
+ *             # Convert to world coordinates (mm)
+ */
+      __pyx_t_11 = ((__pyx_v_depth_value * __pyx_v_depth_a) + __pyx_v_depth_b);
+      if (unlikely(__pyx_t_11 == 0)) {
+        PyErr_SetString(PyExc_ZeroDivisionError, "float division");
+        __PYX_ERR(0, 91, __pyx_L1_error)
+      }
+      __pyx_v_depth_m = (1.0 / __pyx_t_11);
+
+      /* "pointcloud.pyx":94
+ * 
+ *             # Convert to world coordinates (mm)
+ *             world_x = ((x - OPTICAL_CENTER_X) * depth_m / FOCAL_LENGTH_X) * 1000             # <<<<<<<<<<<<<<
+ *             world_y = ((y - OPTICAL_CENTER_Y) * depth_m / FOCAL_LENGTH_Y) * 1000
+ *             world_z = depth_m * 1000
+ */
+      __pyx_t_11 = ((__pyx_v_x - __pyx_v_10pointcloud_OPTICAL_CENTER_X) * __pyx_v_depth_m);
+      if (unlikely(__pyx_v_10pointcloud_FOCAL_LENGTH_X == 0)) {
+        PyErr_SetString(PyExc_ZeroDivisionError, "float division");
+        __PYX_ERR(0, 94, __pyx_L1_error)
+      }
+      __pyx_v_world_x = ((__pyx_t_11 / __pyx_v_10pointcloud_FOCAL_LENGTH_X) * 1000.0);
+
+      /* "pointcloud.pyx":95
+ *             # Convert to world coordinates (mm)
+ *             world_x = ((x - OPTICAL_CENTER_X) * depth_m / FOCAL_LENGTH_X) * 1000
+ *             world_y = ((y - OPTICAL_CENTER_Y) * depth_m / FOCAL_LENGTH_Y) * 1000             # <<<<<<<<<<<<<<
+ *             world_z = depth_m * 1000
+ * 
+ */
+      __pyx_t_11 = ((__pyx_v_y - __pyx_v_10pointcloud_OPTICAL_CENTER_Y) * __pyx_v_depth_m);
+      if (unlikely(__pyx_v_10pointcloud_FOCAL_LENGTH_Y == 0)) {
+        PyErr_SetString(PyExc_ZeroDivisionError, "float division");
+        __PYX_ERR(0, 95, __pyx_L1_error)
+      }
+      __pyx_v_world_y = ((__pyx_t_11 / __pyx_v_10pointcloud_FOCAL_LENGTH_Y) * 1000.0);
+
+      /* "pointcloud.pyx":96
+ *             world_x = ((x - OPTICAL_CENTER_X) * depth_m / FOCAL_LENGTH_X) * 1000
+ *             world_y = ((y - OPTICAL_CENTER_Y) * depth_m / FOCAL_LENGTH_Y) * 1000
+ *             world_z = depth_m * 1000             # <<<<<<<<<<<<<<
+ * 
+ *             # Store in C arrays
+ */
+      __pyx_v_world_z = (__pyx_v_depth_m * 1000.0);
+
+      /* "pointcloud.pyx":99
+ * 
+ *             # Store in C arrays
+ *             points_data[3*idx] = world_x             # <<<<<<<<<<<<<<
+ *             points_data[3*idx+1] = world_y
+ *             points_data[3*idx+2] = world_z
+ */
+      (__pyx_v_points_data[(3 * __pyx_v_idx)]) = __pyx_v_world_x;
+
+      /* "pointcloud.pyx":100
+ *             # Store in C arrays
+ *             points_data[3*idx] = world_x
+ *             points_data[3*idx+1] = world_y             # <<<<<<<<<<<<<<
+ *             points_data[3*idx+2] = world_z
+ * 
+ */
+      (__pyx_v_points_data[((3 * __pyx_v_idx) + 1)]) = __pyx_v_world_y;
+
+      /* "pointcloud.pyx":101
+ *             points_data[3*idx] = world_x
+ *             points_data[3*idx+1] = world_y
+ *             points_data[3*idx+2] = world_z             # <<<<<<<<<<<<<<
+ * 
+ *             pixels_data[2*idx] = x
+ */
+      (__pyx_v_points_data[((3 * __pyx_v_idx) + 2)]) = __pyx_v_world_z;
+
+      /* "pointcloud.pyx":103
+ *             points_data[3*idx+2] = world_z
+ * 
+ *             pixels_data[2*idx] = x             # <<<<<<<<<<<<<<
+ *             pixels_data[2*idx+1] = y
+ * 
+ */
+      (__pyx_v_pixels_data[(2 * __pyx_v_idx)]) = __pyx_v_x;
+
+      /* "pointcloud.pyx":104
+ * 
+ *             pixels_data[2*idx] = x
+ *             pixels_data[2*idx+1] = y             # <<<<<<<<<<<<<<
+ * 
+ *             normalized_depth = depth_value / 2047.0
+ */
+      (__pyx_v_pixels_data[((2 * __pyx_v_idx) + 1)]) = __pyx_v_y;
+
+      /* "pointcloud.pyx":106
+ *             pixels_data[2*idx+1] = y
+ * 
+ *             normalized_depth = depth_value / 2047.0             # <<<<<<<<<<<<<<
+ * 
+ *             if normalized_depth > 1.0:
+ */
+      __pyx_v_normalized_depth = (((double)__pyx_v_depth_value) / 2047.0);
+
+      /* "pointcloud.pyx":108
+ *             normalized_depth = depth_value / 2047.0
+ * 
+ *             if normalized_depth > 1.0:             # <<<<<<<<<<<<<<
+ *                 normalized_depth = 1.0
+ * 
+ */
+      __pyx_t_1 = ((__pyx_v_normalized_depth > 1.0) != 0);
+      if (__pyx_t_1) {
+
+        /* "pointcloud.pyx":109
+ * 
+ *             if normalized_depth > 1.0:
+ *                 normalized_depth = 1.0             # <<<<<<<<<<<<<<
+ * 
+ *             colors_data[3*idx] = <unsigned char>(255 * (1 - normalized_depth))
+ */
+        __pyx_v_normalized_depth = 1.0;
+
+        /* "pointcloud.pyx":108
+ *             normalized_depth = depth_value / 2047.0
+ * 
+ *             if normalized_depth > 1.0:             # <<<<<<<<<<<<<<
+ *                 normalized_depth = 1.0
+ * 
+ */
+      }
+
+      /* "pointcloud.pyx":111
+ *                 normalized_depth = 1.0
+ * 
+ *             colors_data[3*idx] = <unsigned char>(255 * (1 - normalized_depth))             # <<<<<<<<<<<<<<
+ *             colors_data[3*idx+1] = 0
+ * 
+ */
+      (__pyx_v_colors_data[(3 * __pyx_v_idx)]) = ((unsigned char)(255.0 * (1.0 - __pyx_v_normalized_depth)));
+
+      /* "pointcloud.pyx":112
+ * 
+ *             colors_data[3*idx] = <unsigned char>(255 * (1 - normalized_depth))
+ *             colors_data[3*idx+1] = 0             # <<<<<<<<<<<<<<
+ * 
+ *             idx += 1
+ */
+      (__pyx_v_colors_data[((3 * __pyx_v_idx) + 1)]) = 0;
+
+      /* "pointcloud.pyx":114
+ *             colors_data[3*idx+1] = 0
+ * 
  *             idx += 1             # <<<<<<<<<<<<<<
  *         y += pixel_stepping
  * 
@@ -3380,8 +3537,8 @@ static PyObject *__pyx_pf_10pointcloud_get_point_cloud_ext(CYTHON_UNUSED PyObjec
       __pyx_L14_continue:;
     }
 
-    /* "pointcloud.pyx":92
- *             # ... [coordinate conversion code] ...
+    /* "pointcloud.pyx":115
+ * 
  *             idx += 1
  *         y += pixel_stepping             # <<<<<<<<<<<<<<
  * 
@@ -3390,7 +3547,7 @@ static PyObject *__pyx_pf_10pointcloud_get_point_cloud_ext(CYTHON_UNUSED PyObjec
     __pyx_v_y = (__pyx_v_y + __pyx_v_pixel_stepping);
   }
 
-  /* "pointcloud.pyx":95
+  /* "pointcloud.pyx":118
  * 
  *     # Handle zero-points case
  *     if idx == 0:             # <<<<<<<<<<<<<<
@@ -3400,7 +3557,7 @@ static PyObject *__pyx_pf_10pointcloud_get_point_cloud_ext(CYTHON_UNUSED PyObjec
   __pyx_t_1 = ((__pyx_v_idx == 0) != 0);
   if (__pyx_t_1) {
 
-    /* "pointcloud.pyx":96
+    /* "pointcloud.pyx":119
  *     # Handle zero-points case
  *     if idx == 0:
  *         return (np.empty((0, 3), dtype=np.float32),             # <<<<<<<<<<<<<<
@@ -3408,85 +3565,85 @@ static PyObject *__pyx_pf_10pointcloud_get_point_cloud_ext(CYTHON_UNUSED PyObjec
  *                 np.empty((0, 3), dtype=np.uint8))
  */
     __Pyx_XDECREF(__pyx_r);
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_np); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 96, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_np); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 119, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_empty); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 96, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_empty); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 119, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 96, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 119, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_np); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 96, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_np); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 119, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_float32); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 96, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_float32); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 119, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_dtype, __pyx_t_5) < 0) __PYX_ERR(0, 96, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_dtype, __pyx_t_5) < 0) __PYX_ERR(0, 119, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_tuple__2, __pyx_t_2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 96, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_tuple__2, __pyx_t_2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 119, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "pointcloud.pyx":97
+    /* "pointcloud.pyx":120
  *     if idx == 0:
  *         return (np.empty((0, 3), dtype=np.float32),
  *                 np.empty((0, 2), dtype=np.int32),             # <<<<<<<<<<<<<<
  *                 np.empty((0, 3), dtype=np.uint8))
  * 
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_np); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 97, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_np); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 120, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_empty); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 97, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_empty); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 120, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 97, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 120, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_np); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 97, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_np); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 120, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_int32); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 97, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_int32); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 120, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_dtype, __pyx_t_7) < 0) __PYX_ERR(0, 97, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_dtype, __pyx_t_7) < 0) __PYX_ERR(0, 120, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    __pyx_t_7 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_tuple__4, __pyx_t_2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 97, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_tuple__4, __pyx_t_2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 120, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "pointcloud.pyx":98
+    /* "pointcloud.pyx":121
  *         return (np.empty((0, 3), dtype=np.float32),
  *                 np.empty((0, 2), dtype=np.int32),
  *                 np.empty((0, 3), dtype=np.uint8))             # <<<<<<<<<<<<<<
  * 
  *     # Create arrays with explicit copy
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_np); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 98, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_np); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 121, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_empty); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 98, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_empty); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 121, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 98, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 121, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_np); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 98, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_np); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 121, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_uint8); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 98, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_uint8); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 121, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_dtype, __pyx_t_6) < 0) __PYX_ERR(0, 98, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_dtype, __pyx_t_6) < 0) __PYX_ERR(0, 121, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __pyx_t_6 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_tuple__2, __pyx_t_2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 98, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_tuple__2, __pyx_t_2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 121, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "pointcloud.pyx":96
+    /* "pointcloud.pyx":119
  *     # Handle zero-points case
  *     if idx == 0:
  *         return (np.empty((0, 3), dtype=np.float32),             # <<<<<<<<<<<<<<
  *                 np.empty((0, 2), dtype=np.int32),
  *                 np.empty((0, 3), dtype=np.uint8))
  */
-    __pyx_t_2 = PyTuple_New(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 96, __pyx_L1_error)
+    __pyx_t_2 = PyTuple_New(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 119, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_GIVEREF(__pyx_t_5);
     PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_t_5);
@@ -3501,7 +3658,7 @@ static PyObject *__pyx_pf_10pointcloud_get_point_cloud_ext(CYTHON_UNUSED PyObjec
     __pyx_t_2 = 0;
     goto __pyx_L0;
 
-    /* "pointcloud.pyx":95
+    /* "pointcloud.pyx":118
  * 
  *     # Handle zero-points case
  *     if idx == 0:             # <<<<<<<<<<<<<<
@@ -3510,21 +3667,21 @@ static PyObject *__pyx_pf_10pointcloud_get_point_cloud_ext(CYTHON_UNUSED PyObjec
  */
   }
 
-  /* "pointcloud.pyx":102
+  /* "pointcloud.pyx":125
  *     # Create arrays with explicit copy
  *     cdef:
  *         np.ndarray points_arr = np.empty((idx, 3), dtype=np.float32)             # <<<<<<<<<<<<<<
  *         np.ndarray pixels_arr = np.empty((idx, 2), dtype=np.int32)
  *         np.ndarray colors_arr = np.empty((idx, 3), dtype=np.uint8)
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_np); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 102, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_np); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 125, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_empty); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 102, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_empty); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 125, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = PyInt_FromSsize_t(__pyx_v_idx); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 102, __pyx_L1_error)
+  __pyx_t_2 = PyInt_FromSsize_t(__pyx_v_idx); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 125, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_7 = PyTuple_New(2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 102, __pyx_L1_error)
+  __pyx_t_7 = PyTuple_New(2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 125, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_GIVEREF(__pyx_t_2);
   PyTuple_SET_ITEM(__pyx_t_7, 0, __pyx_t_2);
@@ -3532,44 +3689,44 @@ static PyObject *__pyx_pf_10pointcloud_get_point_cloud_ext(CYTHON_UNUSED PyObjec
   __Pyx_GIVEREF(__pyx_int_3);
   PyTuple_SET_ITEM(__pyx_t_7, 1, __pyx_int_3);
   __pyx_t_2 = 0;
-  __pyx_t_2 = PyTuple_New(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 102, __pyx_L1_error)
+  __pyx_t_2 = PyTuple_New(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 125, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_GIVEREF(__pyx_t_7);
   PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_t_7);
   __pyx_t_7 = 0;
-  __pyx_t_7 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 102, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 125, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_np); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 102, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_np); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 125, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_float32); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 102, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_float32); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 125, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_dtype, __pyx_t_4) < 0) __PYX_ERR(0, 102, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_dtype, __pyx_t_4) < 0) __PYX_ERR(0, 125, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_6, __pyx_t_2, __pyx_t_7); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 102, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_6, __pyx_t_2, __pyx_t_7); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 125, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-  if (!(likely(((__pyx_t_4) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_4, __pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 102, __pyx_L1_error)
+  if (!(likely(((__pyx_t_4) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_4, __pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 125, __pyx_L1_error)
   __pyx_v_points_arr = ((PyArrayObject *)__pyx_t_4);
   __pyx_t_4 = 0;
 
-  /* "pointcloud.pyx":103
+  /* "pointcloud.pyx":126
  *     cdef:
  *         np.ndarray points_arr = np.empty((idx, 3), dtype=np.float32)
  *         np.ndarray pixels_arr = np.empty((idx, 2), dtype=np.int32)             # <<<<<<<<<<<<<<
  *         np.ndarray colors_arr = np.empty((idx, 3), dtype=np.uint8)
  * 
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_np); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 103, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_np); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 126, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_empty); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 103, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_empty); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 126, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_4 = PyInt_FromSsize_t(__pyx_v_idx); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 103, __pyx_L1_error)
+  __pyx_t_4 = PyInt_FromSsize_t(__pyx_v_idx); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 126, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 103, __pyx_L1_error)
+  __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 126, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_GIVEREF(__pyx_t_4);
   PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_t_4);
@@ -3577,44 +3734,44 @@ static PyObject *__pyx_pf_10pointcloud_get_point_cloud_ext(CYTHON_UNUSED PyObjec
   __Pyx_GIVEREF(__pyx_int_2);
   PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_int_2);
   __pyx_t_4 = 0;
-  __pyx_t_4 = PyTuple_New(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 103, __pyx_L1_error)
+  __pyx_t_4 = PyTuple_New(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 126, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_GIVEREF(__pyx_t_2);
   PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_t_2);
   __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 103, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 126, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_np); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 103, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_np); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 126, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_n_s_int32); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 103, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_n_s_int32); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 126, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_dtype, __pyx_t_5) < 0) __PYX_ERR(0, 103, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_dtype, __pyx_t_5) < 0) __PYX_ERR(0, 126, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_7, __pyx_t_4, __pyx_t_2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 103, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_7, __pyx_t_4, __pyx_t_2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 126, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (!(likely(((__pyx_t_5) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_5, __pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 103, __pyx_L1_error)
+  if (!(likely(((__pyx_t_5) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_5, __pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 126, __pyx_L1_error)
   __pyx_v_pixels_arr = ((PyArrayObject *)__pyx_t_5);
   __pyx_t_5 = 0;
 
-  /* "pointcloud.pyx":104
+  /* "pointcloud.pyx":127
  *         np.ndarray points_arr = np.empty((idx, 3), dtype=np.float32)
  *         np.ndarray pixels_arr = np.empty((idx, 2), dtype=np.int32)
  *         np.ndarray colors_arr = np.empty((idx, 3), dtype=np.uint8)             # <<<<<<<<<<<<<<
  * 
  *     for i in range(idx):
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_np); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 104, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_np); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 127, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_empty); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 104, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_empty); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 127, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = PyInt_FromSsize_t(__pyx_v_idx); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 104, __pyx_L1_error)
+  __pyx_t_5 = PyInt_FromSsize_t(__pyx_v_idx); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 127, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 104, __pyx_L1_error)
+  __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 127, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_GIVEREF(__pyx_t_5);
   PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_t_5);
@@ -3622,76 +3779,76 @@ static PyObject *__pyx_pf_10pointcloud_get_point_cloud_ext(CYTHON_UNUSED PyObjec
   __Pyx_GIVEREF(__pyx_int_3);
   PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_int_3);
   __pyx_t_5 = 0;
-  __pyx_t_5 = PyTuple_New(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 104, __pyx_L1_error)
+  __pyx_t_5 = PyTuple_New(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 127, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_GIVEREF(__pyx_t_4);
   PyTuple_SET_ITEM(__pyx_t_5, 0, __pyx_t_4);
   __pyx_t_4 = 0;
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 104, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 127, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_n_s_np); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 104, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_n_s_np); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 127, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_n_s_uint8); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 104, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_n_s_uint8); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 127, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_dtype, __pyx_t_6) < 0) __PYX_ERR(0, 104, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_dtype, __pyx_t_6) < 0) __PYX_ERR(0, 127, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  __pyx_t_6 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_t_5, __pyx_t_4); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 104, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_t_5, __pyx_t_4); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 127, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (!(likely(((__pyx_t_6) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_6, __pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 104, __pyx_L1_error)
+  if (!(likely(((__pyx_t_6) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_6, __pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 127, __pyx_L1_error)
   __pyx_v_colors_arr = ((PyArrayObject *)__pyx_t_6);
   __pyx_t_6 = 0;
 
-  /* "pointcloud.pyx":106
+  /* "pointcloud.pyx":129
  *         np.ndarray colors_arr = np.empty((idx, 3), dtype=np.uint8)
  * 
  *     for i in range(idx):             # <<<<<<<<<<<<<<
  *         points_arr[i, 0] = points_data[3*i]
  *         points_arr[i, 1] = points_data[3*i+1]
  */
-  __pyx_t_6 = PyInt_FromSsize_t(__pyx_v_idx); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 106, __pyx_L1_error)
+  __pyx_t_6 = PyInt_FromSsize_t(__pyx_v_idx); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 129, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_4 = __Pyx_PyObject_CallOneArg(__pyx_builtin_range, __pyx_t_6); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 106, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_CallOneArg(__pyx_builtin_range, __pyx_t_6); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 129, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   if (likely(PyList_CheckExact(__pyx_t_4)) || PyTuple_CheckExact(__pyx_t_4)) {
-    __pyx_t_6 = __pyx_t_4; __Pyx_INCREF(__pyx_t_6); __pyx_t_11 = 0;
-    __pyx_t_12 = NULL;
+    __pyx_t_6 = __pyx_t_4; __Pyx_INCREF(__pyx_t_6); __pyx_t_12 = 0;
+    __pyx_t_13 = NULL;
   } else {
-    __pyx_t_11 = -1; __pyx_t_6 = PyObject_GetIter(__pyx_t_4); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 106, __pyx_L1_error)
+    __pyx_t_12 = -1; __pyx_t_6 = PyObject_GetIter(__pyx_t_4); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 129, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_12 = Py_TYPE(__pyx_t_6)->tp_iternext; if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 106, __pyx_L1_error)
+    __pyx_t_13 = Py_TYPE(__pyx_t_6)->tp_iternext; if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 129, __pyx_L1_error)
   }
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   for (;;) {
-    if (likely(!__pyx_t_12)) {
+    if (likely(!__pyx_t_13)) {
       if (likely(PyList_CheckExact(__pyx_t_6))) {
-        if (__pyx_t_11 >= PyList_GET_SIZE(__pyx_t_6)) break;
+        if (__pyx_t_12 >= PyList_GET_SIZE(__pyx_t_6)) break;
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_4 = PyList_GET_ITEM(__pyx_t_6, __pyx_t_11); __Pyx_INCREF(__pyx_t_4); __pyx_t_11++; if (unlikely(0 < 0)) __PYX_ERR(0, 106, __pyx_L1_error)
+        __pyx_t_4 = PyList_GET_ITEM(__pyx_t_6, __pyx_t_12); __Pyx_INCREF(__pyx_t_4); __pyx_t_12++; if (unlikely(0 < 0)) __PYX_ERR(0, 129, __pyx_L1_error)
         #else
-        __pyx_t_4 = PySequence_ITEM(__pyx_t_6, __pyx_t_11); __pyx_t_11++; if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 106, __pyx_L1_error)
+        __pyx_t_4 = PySequence_ITEM(__pyx_t_6, __pyx_t_12); __pyx_t_12++; if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 129, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
         #endif
       } else {
-        if (__pyx_t_11 >= PyTuple_GET_SIZE(__pyx_t_6)) break;
+        if (__pyx_t_12 >= PyTuple_GET_SIZE(__pyx_t_6)) break;
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_4 = PyTuple_GET_ITEM(__pyx_t_6, __pyx_t_11); __Pyx_INCREF(__pyx_t_4); __pyx_t_11++; if (unlikely(0 < 0)) __PYX_ERR(0, 106, __pyx_L1_error)
+        __pyx_t_4 = PyTuple_GET_ITEM(__pyx_t_6, __pyx_t_12); __Pyx_INCREF(__pyx_t_4); __pyx_t_12++; if (unlikely(0 < 0)) __PYX_ERR(0, 129, __pyx_L1_error)
         #else
-        __pyx_t_4 = PySequence_ITEM(__pyx_t_6, __pyx_t_11); __pyx_t_11++; if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 106, __pyx_L1_error)
+        __pyx_t_4 = PySequence_ITEM(__pyx_t_6, __pyx_t_12); __pyx_t_12++; if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 129, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
         #endif
       }
     } else {
-      __pyx_t_4 = __pyx_t_12(__pyx_t_6);
+      __pyx_t_4 = __pyx_t_13(__pyx_t_6);
       if (unlikely(!__pyx_t_4)) {
         PyObject* exc_type = PyErr_Occurred();
         if (exc_type) {
           if (likely(__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) PyErr_Clear();
-          else __PYX_ERR(0, 106, __pyx_L1_error)
+          else __PYX_ERR(0, 129, __pyx_L1_error)
         }
         break;
       }
@@ -3700,20 +3857,20 @@ static PyObject *__pyx_pf_10pointcloud_get_point_cloud_ext(CYTHON_UNUSED PyObjec
     __Pyx_XDECREF_SET(__pyx_v_i, __pyx_t_4);
     __pyx_t_4 = 0;
 
-    /* "pointcloud.pyx":107
+    /* "pointcloud.pyx":130
  * 
  *     for i in range(idx):
  *         points_arr[i, 0] = points_data[3*i]             # <<<<<<<<<<<<<<
  *         points_arr[i, 1] = points_data[3*i+1]
  *         points_arr[i, 2] = points_data[3*i+2]
  */
-    __pyx_t_4 = PyNumber_Multiply(__pyx_int_3, __pyx_v_i); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 107, __pyx_L1_error)
+    __pyx_t_4 = PyNumber_Multiply(__pyx_int_3, __pyx_v_i); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 130, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_13 = __Pyx_PyIndex_AsSsize_t(__pyx_t_4); if (unlikely((__pyx_t_13 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 107, __pyx_L1_error)
+    __pyx_t_14 = __Pyx_PyIndex_AsSsize_t(__pyx_t_4); if (unlikely((__pyx_t_14 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 130, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_4 = PyFloat_FromDouble((__pyx_v_points_data[__pyx_t_13])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 107, __pyx_L1_error)
+    __pyx_t_4 = PyFloat_FromDouble((__pyx_v_points_data[__pyx_t_14])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 130, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_5 = PyTuple_New(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 107, __pyx_L1_error)
+    __pyx_t_5 = PyTuple_New(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 130, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_INCREF(__pyx_v_i);
     __Pyx_GIVEREF(__pyx_v_i);
@@ -3721,27 +3878,27 @@ static PyObject *__pyx_pf_10pointcloud_get_point_cloud_ext(CYTHON_UNUSED PyObjec
     __Pyx_INCREF(__pyx_int_0);
     __Pyx_GIVEREF(__pyx_int_0);
     PyTuple_SET_ITEM(__pyx_t_5, 1, __pyx_int_0);
-    if (unlikely(PyObject_SetItem(((PyObject *)__pyx_v_points_arr), __pyx_t_5, __pyx_t_4) < 0)) __PYX_ERR(0, 107, __pyx_L1_error)
+    if (unlikely(PyObject_SetItem(((PyObject *)__pyx_v_points_arr), __pyx_t_5, __pyx_t_4) < 0)) __PYX_ERR(0, 130, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-    /* "pointcloud.pyx":108
+    /* "pointcloud.pyx":131
  *     for i in range(idx):
  *         points_arr[i, 0] = points_data[3*i]
  *         points_arr[i, 1] = points_data[3*i+1]             # <<<<<<<<<<<<<<
  *         points_arr[i, 2] = points_data[3*i+2]
  *         pixels_arr[i, 0] = pixels_data[2*i]
  */
-    __pyx_t_4 = PyNumber_Multiply(__pyx_int_3, __pyx_v_i); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 108, __pyx_L1_error)
+    __pyx_t_4 = PyNumber_Multiply(__pyx_int_3, __pyx_v_i); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 131, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_5 = __Pyx_PyInt_AddObjC(__pyx_t_4, __pyx_int_1, 1, 0, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 108, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyInt_AddObjC(__pyx_t_4, __pyx_int_1, 1, 0, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 131, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_13 = __Pyx_PyIndex_AsSsize_t(__pyx_t_5); if (unlikely((__pyx_t_13 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 108, __pyx_L1_error)
+    __pyx_t_14 = __Pyx_PyIndex_AsSsize_t(__pyx_t_5); if (unlikely((__pyx_t_14 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 131, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __pyx_t_5 = PyFloat_FromDouble((__pyx_v_points_data[__pyx_t_13])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 108, __pyx_L1_error)
+    __pyx_t_5 = PyFloat_FromDouble((__pyx_v_points_data[__pyx_t_14])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 131, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 108, __pyx_L1_error)
+    __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 131, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_INCREF(__pyx_v_i);
     __Pyx_GIVEREF(__pyx_v_i);
@@ -3749,27 +3906,27 @@ static PyObject *__pyx_pf_10pointcloud_get_point_cloud_ext(CYTHON_UNUSED PyObjec
     __Pyx_INCREF(__pyx_int_1);
     __Pyx_GIVEREF(__pyx_int_1);
     PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_int_1);
-    if (unlikely(PyObject_SetItem(((PyObject *)__pyx_v_points_arr), __pyx_t_4, __pyx_t_5) < 0)) __PYX_ERR(0, 108, __pyx_L1_error)
+    if (unlikely(PyObject_SetItem(((PyObject *)__pyx_v_points_arr), __pyx_t_4, __pyx_t_5) < 0)) __PYX_ERR(0, 131, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-    /* "pointcloud.pyx":109
+    /* "pointcloud.pyx":132
  *         points_arr[i, 0] = points_data[3*i]
  *         points_arr[i, 1] = points_data[3*i+1]
  *         points_arr[i, 2] = points_data[3*i+2]             # <<<<<<<<<<<<<<
  *         pixels_arr[i, 0] = pixels_data[2*i]
  *         pixels_arr[i, 1] = pixels_data[2*i+1]
  */
-    __pyx_t_5 = PyNumber_Multiply(__pyx_int_3, __pyx_v_i); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 109, __pyx_L1_error)
+    __pyx_t_5 = PyNumber_Multiply(__pyx_int_3, __pyx_v_i); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 132, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_4 = __Pyx_PyInt_AddObjC(__pyx_t_5, __pyx_int_2, 2, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 109, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyInt_AddObjC(__pyx_t_5, __pyx_int_2, 2, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 132, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __pyx_t_13 = __Pyx_PyIndex_AsSsize_t(__pyx_t_4); if (unlikely((__pyx_t_13 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 109, __pyx_L1_error)
+    __pyx_t_14 = __Pyx_PyIndex_AsSsize_t(__pyx_t_4); if (unlikely((__pyx_t_14 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 132, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_4 = PyFloat_FromDouble((__pyx_v_points_data[__pyx_t_13])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 109, __pyx_L1_error)
+    __pyx_t_4 = PyFloat_FromDouble((__pyx_v_points_data[__pyx_t_14])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 132, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_5 = PyTuple_New(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 109, __pyx_L1_error)
+    __pyx_t_5 = PyTuple_New(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 132, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_INCREF(__pyx_v_i);
     __Pyx_GIVEREF(__pyx_v_i);
@@ -3777,24 +3934,24 @@ static PyObject *__pyx_pf_10pointcloud_get_point_cloud_ext(CYTHON_UNUSED PyObjec
     __Pyx_INCREF(__pyx_int_2);
     __Pyx_GIVEREF(__pyx_int_2);
     PyTuple_SET_ITEM(__pyx_t_5, 1, __pyx_int_2);
-    if (unlikely(PyObject_SetItem(((PyObject *)__pyx_v_points_arr), __pyx_t_5, __pyx_t_4) < 0)) __PYX_ERR(0, 109, __pyx_L1_error)
+    if (unlikely(PyObject_SetItem(((PyObject *)__pyx_v_points_arr), __pyx_t_5, __pyx_t_4) < 0)) __PYX_ERR(0, 132, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-    /* "pointcloud.pyx":110
+    /* "pointcloud.pyx":133
  *         points_arr[i, 1] = points_data[3*i+1]
  *         points_arr[i, 2] = points_data[3*i+2]
  *         pixels_arr[i, 0] = pixels_data[2*i]             # <<<<<<<<<<<<<<
  *         pixels_arr[i, 1] = pixels_data[2*i+1]
  *         colors_arr[i, 0] = colors_data[3*i]
  */
-    __pyx_t_4 = PyNumber_Multiply(__pyx_int_2, __pyx_v_i); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 110, __pyx_L1_error)
+    __pyx_t_4 = PyNumber_Multiply(__pyx_int_2, __pyx_v_i); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 133, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_13 = __Pyx_PyIndex_AsSsize_t(__pyx_t_4); if (unlikely((__pyx_t_13 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 110, __pyx_L1_error)
+    __pyx_t_14 = __Pyx_PyIndex_AsSsize_t(__pyx_t_4); if (unlikely((__pyx_t_14 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 133, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_4 = __Pyx_PyInt_From_int((__pyx_v_pixels_data[__pyx_t_13])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 110, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyInt_From_int((__pyx_v_pixels_data[__pyx_t_14])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 133, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_5 = PyTuple_New(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 110, __pyx_L1_error)
+    __pyx_t_5 = PyTuple_New(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 133, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_INCREF(__pyx_v_i);
     __Pyx_GIVEREF(__pyx_v_i);
@@ -3802,27 +3959,27 @@ static PyObject *__pyx_pf_10pointcloud_get_point_cloud_ext(CYTHON_UNUSED PyObjec
     __Pyx_INCREF(__pyx_int_0);
     __Pyx_GIVEREF(__pyx_int_0);
     PyTuple_SET_ITEM(__pyx_t_5, 1, __pyx_int_0);
-    if (unlikely(PyObject_SetItem(((PyObject *)__pyx_v_pixels_arr), __pyx_t_5, __pyx_t_4) < 0)) __PYX_ERR(0, 110, __pyx_L1_error)
+    if (unlikely(PyObject_SetItem(((PyObject *)__pyx_v_pixels_arr), __pyx_t_5, __pyx_t_4) < 0)) __PYX_ERR(0, 133, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-    /* "pointcloud.pyx":111
+    /* "pointcloud.pyx":134
  *         points_arr[i, 2] = points_data[3*i+2]
  *         pixels_arr[i, 0] = pixels_data[2*i]
  *         pixels_arr[i, 1] = pixels_data[2*i+1]             # <<<<<<<<<<<<<<
  *         colors_arr[i, 0] = colors_data[3*i]
  *         colors_arr[i, 1] = colors_data[3*i+1]
  */
-    __pyx_t_4 = PyNumber_Multiply(__pyx_int_2, __pyx_v_i); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 111, __pyx_L1_error)
+    __pyx_t_4 = PyNumber_Multiply(__pyx_int_2, __pyx_v_i); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 134, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_5 = __Pyx_PyInt_AddObjC(__pyx_t_4, __pyx_int_1, 1, 0, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 111, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyInt_AddObjC(__pyx_t_4, __pyx_int_1, 1, 0, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 134, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_13 = __Pyx_PyIndex_AsSsize_t(__pyx_t_5); if (unlikely((__pyx_t_13 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 111, __pyx_L1_error)
+    __pyx_t_14 = __Pyx_PyIndex_AsSsize_t(__pyx_t_5); if (unlikely((__pyx_t_14 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 134, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __pyx_t_5 = __Pyx_PyInt_From_int((__pyx_v_pixels_data[__pyx_t_13])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 111, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyInt_From_int((__pyx_v_pixels_data[__pyx_t_14])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 134, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 111, __pyx_L1_error)
+    __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 134, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_INCREF(__pyx_v_i);
     __Pyx_GIVEREF(__pyx_v_i);
@@ -3830,24 +3987,24 @@ static PyObject *__pyx_pf_10pointcloud_get_point_cloud_ext(CYTHON_UNUSED PyObjec
     __Pyx_INCREF(__pyx_int_1);
     __Pyx_GIVEREF(__pyx_int_1);
     PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_int_1);
-    if (unlikely(PyObject_SetItem(((PyObject *)__pyx_v_pixels_arr), __pyx_t_4, __pyx_t_5) < 0)) __PYX_ERR(0, 111, __pyx_L1_error)
+    if (unlikely(PyObject_SetItem(((PyObject *)__pyx_v_pixels_arr), __pyx_t_4, __pyx_t_5) < 0)) __PYX_ERR(0, 134, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-    /* "pointcloud.pyx":112
+    /* "pointcloud.pyx":135
  *         pixels_arr[i, 0] = pixels_data[2*i]
  *         pixels_arr[i, 1] = pixels_data[2*i+1]
  *         colors_arr[i, 0] = colors_data[3*i]             # <<<<<<<<<<<<<<
  *         colors_arr[i, 1] = colors_data[3*i+1]
  *         colors_arr[i, 2] = colors_data[3*i+2]
  */
-    __pyx_t_5 = PyNumber_Multiply(__pyx_int_3, __pyx_v_i); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 112, __pyx_L1_error)
+    __pyx_t_5 = PyNumber_Multiply(__pyx_int_3, __pyx_v_i); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 135, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_13 = __Pyx_PyIndex_AsSsize_t(__pyx_t_5); if (unlikely((__pyx_t_13 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 112, __pyx_L1_error)
+    __pyx_t_14 = __Pyx_PyIndex_AsSsize_t(__pyx_t_5); if (unlikely((__pyx_t_14 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 135, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __pyx_t_5 = __Pyx_PyInt_From_unsigned_char((__pyx_v_colors_data[__pyx_t_13])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 112, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyInt_From_unsigned_char((__pyx_v_colors_data[__pyx_t_14])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 135, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 112, __pyx_L1_error)
+    __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 135, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_INCREF(__pyx_v_i);
     __Pyx_GIVEREF(__pyx_v_i);
@@ -3855,27 +4012,27 @@ static PyObject *__pyx_pf_10pointcloud_get_point_cloud_ext(CYTHON_UNUSED PyObjec
     __Pyx_INCREF(__pyx_int_0);
     __Pyx_GIVEREF(__pyx_int_0);
     PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_int_0);
-    if (unlikely(PyObject_SetItem(((PyObject *)__pyx_v_colors_arr), __pyx_t_4, __pyx_t_5) < 0)) __PYX_ERR(0, 112, __pyx_L1_error)
+    if (unlikely(PyObject_SetItem(((PyObject *)__pyx_v_colors_arr), __pyx_t_4, __pyx_t_5) < 0)) __PYX_ERR(0, 135, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-    /* "pointcloud.pyx":113
+    /* "pointcloud.pyx":136
  *         pixels_arr[i, 1] = pixels_data[2*i+1]
  *         colors_arr[i, 0] = colors_data[3*i]
  *         colors_arr[i, 1] = colors_data[3*i+1]             # <<<<<<<<<<<<<<
  *         colors_arr[i, 2] = colors_data[3*i+2]
  * 
  */
-    __pyx_t_5 = PyNumber_Multiply(__pyx_int_3, __pyx_v_i); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 113, __pyx_L1_error)
+    __pyx_t_5 = PyNumber_Multiply(__pyx_int_3, __pyx_v_i); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 136, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_4 = __Pyx_PyInt_AddObjC(__pyx_t_5, __pyx_int_1, 1, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 113, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyInt_AddObjC(__pyx_t_5, __pyx_int_1, 1, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 136, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __pyx_t_13 = __Pyx_PyIndex_AsSsize_t(__pyx_t_4); if (unlikely((__pyx_t_13 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 113, __pyx_L1_error)
+    __pyx_t_14 = __Pyx_PyIndex_AsSsize_t(__pyx_t_4); if (unlikely((__pyx_t_14 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 136, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_4 = __Pyx_PyInt_From_unsigned_char((__pyx_v_colors_data[__pyx_t_13])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 113, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyInt_From_unsigned_char((__pyx_v_colors_data[__pyx_t_14])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 136, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_5 = PyTuple_New(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 113, __pyx_L1_error)
+    __pyx_t_5 = PyTuple_New(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 136, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_INCREF(__pyx_v_i);
     __Pyx_GIVEREF(__pyx_v_i);
@@ -3883,27 +4040,27 @@ static PyObject *__pyx_pf_10pointcloud_get_point_cloud_ext(CYTHON_UNUSED PyObjec
     __Pyx_INCREF(__pyx_int_1);
     __Pyx_GIVEREF(__pyx_int_1);
     PyTuple_SET_ITEM(__pyx_t_5, 1, __pyx_int_1);
-    if (unlikely(PyObject_SetItem(((PyObject *)__pyx_v_colors_arr), __pyx_t_5, __pyx_t_4) < 0)) __PYX_ERR(0, 113, __pyx_L1_error)
+    if (unlikely(PyObject_SetItem(((PyObject *)__pyx_v_colors_arr), __pyx_t_5, __pyx_t_4) < 0)) __PYX_ERR(0, 136, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-    /* "pointcloud.pyx":114
+    /* "pointcloud.pyx":137
  *         colors_arr[i, 0] = colors_data[3*i]
  *         colors_arr[i, 1] = colors_data[3*i+1]
  *         colors_arr[i, 2] = colors_data[3*i+2]             # <<<<<<<<<<<<<<
  * 
  *     if points_data != NULL: free(points_data)
  */
-    __pyx_t_4 = PyNumber_Multiply(__pyx_int_3, __pyx_v_i); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 114, __pyx_L1_error)
+    __pyx_t_4 = PyNumber_Multiply(__pyx_int_3, __pyx_v_i); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 137, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_5 = __Pyx_PyInt_AddObjC(__pyx_t_4, __pyx_int_2, 2, 0, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 114, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyInt_AddObjC(__pyx_t_4, __pyx_int_2, 2, 0, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 137, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_13 = __Pyx_PyIndex_AsSsize_t(__pyx_t_5); if (unlikely((__pyx_t_13 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 114, __pyx_L1_error)
+    __pyx_t_14 = __Pyx_PyIndex_AsSsize_t(__pyx_t_5); if (unlikely((__pyx_t_14 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 137, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __pyx_t_5 = __Pyx_PyInt_From_unsigned_char((__pyx_v_colors_data[__pyx_t_13])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 114, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyInt_From_unsigned_char((__pyx_v_colors_data[__pyx_t_14])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 137, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 114, __pyx_L1_error)
+    __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 137, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_INCREF(__pyx_v_i);
     __Pyx_GIVEREF(__pyx_v_i);
@@ -3911,11 +4068,11 @@ static PyObject *__pyx_pf_10pointcloud_get_point_cloud_ext(CYTHON_UNUSED PyObjec
     __Pyx_INCREF(__pyx_int_2);
     __Pyx_GIVEREF(__pyx_int_2);
     PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_int_2);
-    if (unlikely(PyObject_SetItem(((PyObject *)__pyx_v_colors_arr), __pyx_t_4, __pyx_t_5) < 0)) __PYX_ERR(0, 114, __pyx_L1_error)
+    if (unlikely(PyObject_SetItem(((PyObject *)__pyx_v_colors_arr), __pyx_t_4, __pyx_t_5) < 0)) __PYX_ERR(0, 137, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-    /* "pointcloud.pyx":106
+    /* "pointcloud.pyx":129
  *         np.ndarray colors_arr = np.empty((idx, 3), dtype=np.uint8)
  * 
  *     for i in range(idx):             # <<<<<<<<<<<<<<
@@ -3925,7 +4082,7 @@ static PyObject *__pyx_pf_10pointcloud_get_point_cloud_ext(CYTHON_UNUSED PyObjec
   }
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "pointcloud.pyx":116
+  /* "pointcloud.pyx":139
  *         colors_arr[i, 2] = colors_data[3*i+2]
  * 
  *     if points_data != NULL: free(points_data)             # <<<<<<<<<<<<<<
@@ -3937,7 +4094,7 @@ static PyObject *__pyx_pf_10pointcloud_get_point_cloud_ext(CYTHON_UNUSED PyObjec
     free(__pyx_v_points_data);
   }
 
-  /* "pointcloud.pyx":117
+  /* "pointcloud.pyx":140
  * 
  *     if points_data != NULL: free(points_data)
  *     if pixels_data != NULL: free(pixels_data)             # <<<<<<<<<<<<<<
@@ -3949,7 +4106,7 @@ static PyObject *__pyx_pf_10pointcloud_get_point_cloud_ext(CYTHON_UNUSED PyObjec
     free(__pyx_v_pixels_data);
   }
 
-  /* "pointcloud.pyx":118
+  /* "pointcloud.pyx":141
  *     if points_data != NULL: free(points_data)
  *     if pixels_data != NULL: free(pixels_data)
  *     if colors_data != NULL: free(colors_data)             # <<<<<<<<<<<<<<
@@ -3961,13 +4118,13 @@ static PyObject *__pyx_pf_10pointcloud_get_point_cloud_ext(CYTHON_UNUSED PyObjec
     free(__pyx_v_colors_data);
   }
 
-  /* "pointcloud.pyx":120
+  /* "pointcloud.pyx":143
  *     if colors_data != NULL: free(colors_data)
  * 
  *     return (points_arr, pixels_arr, colors_arr)             # <<<<<<<<<<<<<<
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_6 = PyTuple_New(3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 120, __pyx_L1_error)
+  __pyx_t_6 = PyTuple_New(3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 143, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_INCREF(((PyObject *)__pyx_v_points_arr));
   __Pyx_GIVEREF(((PyObject *)__pyx_v_points_arr));
@@ -18762,7 +18919,7 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
 };
 static CYTHON_SMALL_CODE int __Pyx_InitCachedBuiltins(void) {
   __pyx_builtin_MemoryError = __Pyx_GetBuiltinName(__pyx_n_s_MemoryError); if (!__pyx_builtin_MemoryError) __PYX_ERR(0, 62, __pyx_L1_error)
-  __pyx_builtin_range = __Pyx_GetBuiltinName(__pyx_n_s_range); if (!__pyx_builtin_range) __PYX_ERR(0, 106, __pyx_L1_error)
+  __pyx_builtin_range = __Pyx_GetBuiltinName(__pyx_n_s_range); if (!__pyx_builtin_range) __PYX_ERR(0, 129, __pyx_L1_error)
   __pyx_builtin_ImportError = __Pyx_GetBuiltinName(__pyx_n_s_ImportError); if (!__pyx_builtin_ImportError) __PYX_ERR(1, 884, __pyx_L1_error)
   __pyx_builtin_ValueError = __Pyx_GetBuiltinName(__pyx_n_s_ValueError); if (!__pyx_builtin_ValueError) __PYX_ERR(2, 133, __pyx_L1_error)
   __pyx_builtin_enumerate = __Pyx_GetBuiltinName(__pyx_n_s_enumerate); if (!__pyx_builtin_enumerate) __PYX_ERR(2, 151, __pyx_L1_error)

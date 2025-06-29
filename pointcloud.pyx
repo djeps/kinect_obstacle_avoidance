@@ -87,7 +87,30 @@ def get_point_cloud_ext(
             if skip_pixel:
                 continue
             
-            # ... [coordinate conversion code] ...
+            # Convert to physical coordinates
+            depth_m = 1.0 / (depth_value * depth_a + depth_b)
+            
+            # Convert to world coordinates (mm)
+            world_x = ((x - OPTICAL_CENTER_X) * depth_m / FOCAL_LENGTH_X) * 1000
+            world_y = ((y - OPTICAL_CENTER_Y) * depth_m / FOCAL_LENGTH_Y) * 1000
+            world_z = depth_m * 1000
+            
+            # Store in C arrays
+            points_data[3*idx] = world_x
+            points_data[3*idx+1] = world_y
+            points_data[3*idx+2] = world_z
+            
+            pixels_data[2*idx] = x
+            pixels_data[2*idx+1] = y
+            
+            normalized_depth = depth_value / 2047.0
+            
+            if normalized_depth > 1.0:
+                normalized_depth = 1.0
+            
+            colors_data[3*idx] = <unsigned char>(255 * (1 - normalized_depth))
+            colors_data[3*idx+1] = 0
+            
             idx += 1
         y += pixel_stepping
     
